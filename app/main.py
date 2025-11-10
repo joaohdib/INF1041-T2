@@ -7,6 +7,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 try:
     # --- Importações após ajuste do Path ---
     from app.routes.transacao_routes import transacao_bp
+    from app.routes.meta_routes import meta_bp
     from infra.db.database import init_db
 except ImportError as e:
     print("Erro de importação. Verifique a estrutura de pastas e os __init__.py")
@@ -28,6 +29,7 @@ except Exception as e:
 app = Flask(__name__)
 
 app.register_blueprint(transacao_bp, url_prefix='/api/transacoes')
+app.register_blueprint(meta_bp, url_prefix='/api/metas')
 
 # --- Rota Raiz (Health Check) ---
 @app.route('/')
@@ -36,7 +38,7 @@ def index():
     """ Rota de verificação para saber se o servidor está online. """
     return jsonify({
         "status": "Servidor da API Financeira está online!",
-        "documentacao_rotas": "/api/transacoes/..."
+    "documentacao_rotas": "/api/transacoes/... e /api/metas/..."
     })
 
 # --- Ponto de Entrada ---

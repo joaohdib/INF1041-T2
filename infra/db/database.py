@@ -103,7 +103,7 @@ def create_tables(connection):
     )
     """)
     
-    # Tabela de Meta (para a outra equipe)
+    # Tabela de Meta (objetivos financeiros)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS meta (
         id TEXT PRIMARY KEY,
@@ -112,9 +112,22 @@ def create_tables(connection):
         valor_alvo REAL NOT NULL,
         valor_atual REAL DEFAULT 0.0,
         data_limite TEXT,               -- Data em formato ISO (string)
-        FOREIGN KEY (id_usuario) REFERENCES usuario (id)
+        id_perfil TEXT,
+        FOREIGN KEY (id_usuario) REFERENCES usuario (id),
+        FOREIGN KEY (id_perfil) REFERENCES perfil (id)
     )
     """)
+
+    # Migração simples: adiciona coluna id_perfil se não existir em bancos antigos
+    try:
+        cursor.execute("PRAGMA table_info(meta)")
+        cols = [r[1] for r in cursor.fetchall()]
+        if 'id_perfil' not in cols:
+            cursor.execute("ALTER TABLE meta ADD COLUMN id_perfil TEXT")
+            print("Coluna id_perfil adicionada à tabela meta.")
+    except sqlite3.Error:
+        # Ignora se não conseguir; apenas relevante para bancos antigos
+        pass
     
     print("Tabelas verificadas/criadas com sucesso.")
     connection.commit()

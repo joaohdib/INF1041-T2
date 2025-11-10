@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any
 from domain.transacao import Transacao
+from domain.meta import Meta
 
 # Os Casos de Uso dependem destas abstrações, não de implementações concretas.
 
@@ -23,4 +24,18 @@ class ITransacaoRepository(ABC):
 
     @abstractmethod
     def get_dashboard_stats(self, id_usuario: str) -> Dict[str, Any]:
+        pass
+
+
+class IMetaRepository(ABC):
+    @abstractmethod
+    def add(self, meta: Meta) -> None:
+        pass
+
+    @abstractmethod
+    def get_by_usuario(self, id_usuario: str) -> List[Meta]:
+        pass
+
+    @abstractmethod
+    def update(self, meta: Meta) -> None:
         pass

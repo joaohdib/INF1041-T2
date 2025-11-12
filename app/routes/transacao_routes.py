@@ -6,39 +6,12 @@ from use_cases.transacao_use_cases import (
     ObterEstatisticasDashboard
 )
 from infra.repositories.transacao_repository_sqlite import TransacaoRepositorySqlite
-from infra.db.database import get_db_connection # Função que retorna a conexão
+from infra.db.database import get_db_session
 from domain.transacao import Transacao
 
 transacao_bp = Blueprint('transacao_bp', __name__)
 
-@transacao_bp.route('/transacao/lancar_transacao', methods=['POST'])
-def lancar_transacao_route():
-    # 1. Extrai dados da Requisição
-    data = request.json
-    id_usuario = "usuario_mock_id" # Em um cenário real, viria do token de autenticação
-    
-    try:
-        # 2. Injeção de Dependência
-        db_conn = get_db_connection()
-        transacao_repo = TransacaoRepositorySqlite(db_conn)
-        
-        # 3. Chama o Caso de Uso
-        use_case = LancarTransacao(transacao_repo)
-        transacao = use_case.execute(
-            id_usuario=id_usuario,
-            valor=float(data.get('valor')),
-            tipo=data.get('tipo'),
-            descricao=data.get('descricao')
-        )
-        
-        # 4. Retorna a Resposta
-        return jsonify({"id": transacao.id, "status": transacao.status.value}), 201
-    
-    except ValueError as e:
-        return jsonify({"erro": str(e)}), 400
-    except Exception as e:
-        return jsonify({"erro": f"Erro interno: {e}"}), 500
-    
+# Função auxiliar de serialização
 def serialize_transacao(t: Transacao) -> dict:
     """ Converte um objeto Transacao em um dicionário para JSON. """
     return {
@@ -52,38 +25,75 @@ def serialize_transacao(t: Transacao) -> dict:
         "id_perfil": t.id_perfil
     }
 
-@transacao_bp.route('/inbox', methods=['GET'])
-def get_inbox_route():
-    id_usuario = "usuario_mock_id" # Viria do token
+@transacao_bp.route('/transacao/lancar_transacao', methods=['POST'])
+def lancar_transacao_route():
+    data = request.json
+    id_usuario = "usuario_mock_id" # Em um cenário real, viria do token
+    
+    # 1. Pega a sessão
+    db_session = get_db_session()
     
     try:
-        db_conn = get_db_connection()
-        transacao_repo = TransacaoRepositorySqlite(db_conn)
+        # 2. Injeção de Dependência (com a sessão)
+        transacao_repo = TransacaoRepositorySqlite(db_session)
+        
+        # 3. Chama o Caso de Uso
+        use_case = LancarTransacao(transacao_repo)
+        transacao = use_case.execute(
+            id_usuario=id_usuario,
+            valor=float(data.get('valor')),
+            tipo=data.get('tipo'),
+            descricao=data.get('descricao')
+        )
+        
+        # 4. Commit da transação!
+        db_session.commit()
+        
+        return jsonify({"id": transacao.id, "status": transacao.status.value}), 201
+    
+    except ValueError as e:
+        db_session.rollback() # Desfaz em caso de erro de negócio
+        return jsonify({"erro": str(e)}), 400
+    except Exception as e:
+        db_session.rollback() # Desfaz em caso de erro interno
+        return jsonify({"erro": f"Erro interno: {e}"}), 500
+    finally:
+        db_session.close() # Fecha a sessão, devolvendo-a ao pool
+
+@transacao_bp.route('/inbox', methods=['GET'])
+def get_inbox_route():
+    id_usuario = "usuario_mock_id"
+    db_session = get_db_session()
+    try:
+        transacao_repo = TransacaoRepositorySqlite(db_session)
         
         use_case = ListarTransacoesPendentes(transacao_repo)
         transacoes_pendentes = use_case.execute(id_usuario=id_usuario)
         
-        # Serializa a lista de transações
         transacoes_json = [serialize_transacao(t) for t in transacoes_pendentes]
         
+        # GET não precisa de commit
         return jsonify(transacoes_json), 200
         
     except Exception as e:
+        # GET não deve ter rollback, mas é bom fechar a sessão
         return jsonify({"erro": f"Erro interno: {e}"}), 500
+    finally:
+        db_session.close()
     
 @transacao_bp.route('/inbox/categorizar', methods=['POST'])
 def categorizar_em_lote_route():
-    id_usuario = "usuario_mock_id" # Viria do token
+    id_usuario = "usuario_mock_id"
     data = request.json
     
+    db_session = get_db_session()
+    
     try:
-        # Extrai os dados da requisição
-        ids_transacoes = data.get('ids_transacoes') # Espera uma lista de IDs
+        ids_transacoes = data.get('ids_transacoes')
         id_categoria = data.get('id_categoria')
         id_perfil = data.get('id_perfil')
         
-        db_conn = get_db_connection()
-        transacao_repo = TransacaoRepositorySqlite(db_conn)
+        transacao_repo = TransacaoRepositorySqlite(db_session)
         
         use_case = CategorizarTransacoesEmLote(transacao_repo)
         count = use_case.execute(
@@ -93,20 +103,26 @@ def categorizar_em_lote_route():
             id_perfil=id_perfil
         )
         
+        db_session.commit() # Salva as mudanças do lote
+        
         return jsonify({"mensagem": f"{count} transações atualizadas com sucesso."}), 200
 
     except ValueError as e:
+        db_session.rollback()
         return jsonify({"erro": str(e)}), 400
     except Exception as e:
+        db_session.rollback()
         return jsonify({"erro": f"Erro interno: {e}"}), 500
+    finally:
+        db_session.close()
     
 @transacao_bp.route('/dashboard/stats', methods=['GET'])
 def get_dashboard_stats_route():
-    id_usuario = "usuario_mock_id" # Viria do token
+    id_usuario = "usuario_mock_id"
+    db_session = get_db_session()
     
     try:
-        db_conn = get_db_connection()
-        transacao_repo = TransacaoRepositorySqlite(db_conn)
+        transacao_repo = TransacaoRepositorySqlite(db_session)
         
         use_case = ObterEstatisticasDashboard(transacao_repo)
         estatisticas = use_case.execute(id_usuario=id_usuario)
@@ -115,3 +131,5 @@ def get_dashboard_stats_route():
         
     except Exception as e:
         return jsonify({"erro": f"Erro interno: {e}"}), 500
+    finally:
+        db_session.close()

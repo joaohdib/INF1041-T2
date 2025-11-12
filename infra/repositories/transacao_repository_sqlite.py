@@ -1,186 +1,141 @@
-from domain.transacao import Transacao, TipoTransacao, StatusTransacao
-from use_cases.repository_interfaces import ITransacaoRepository
+from sqlalchemy.orm import Session
+from sqlalchemy import func, case
 from typing import List, Dict, Any
 from datetime import datetime
-import sqlite3
+
+# Entidades de Domínio (o "contrato" do repositório)
+from domain.transacao import Transacao as DomainTransacao
+from domain.transacao import TipoTransacao, StatusTransacao
+
+# Interfaces (para garantir conformidade)
+from use_cases.repository_interfaces import ITransacaoRepository
+
+# Models de Infra (a tabela do banco)
+from infra.db.models import Transacao as ModelTransacao
 
 class TransacaoRepositorySqlite(ITransacaoRepository):
     
-    def __init__(self, db_connection):
-        self.db = db_connection
+    def __init__(self, db_session: Session):
+        # Recebemos a SESSÃO do SQLAlchemy, não a conexão
+        self.db: Session = db_session
 
-    def _map_row_to_transacao(self, row: tuple) -> Transacao:
-        """
-        Função auxiliar para converter uma linha do banco de dados 
-        (que é uma tupla) em um objeto de domínio Transacao.
-        """
-        # A ordem das colunas deve bater com o SELECT
-        return Transacao(
-            id=row[0],
-            valor=row[1],
-            # Converte a string do DB de volta para o Enum
-            tipo=TipoTransacao(row[2]), 
-            # Converte a string ISO de volta para um objeto datetime
-            data=datetime.fromisoformat(row[3]), 
-            status=StatusTransacao(row[4]),
-            id_usuario=row[5],
-            descricao=row[6],
-            id_categoria=row[7],
-            id_perfil=row[8],
-            id_projeto=row[9]
+    # --- Funções Auxiliares de Mapeamento ---
+    # O Repositório é o tradutor oficial entre o Domínio e a Infra
+
+    def _map_model_to_domain(self, t_model: ModelTransacao) -> DomainTransacao:
+        """Converte um Model do SQLAlchemy para uma Entidade de Domínio."""
+        return DomainTransacao(
+            id=t_model.id,
+            valor=t_model.valor,
+            tipo=t_model.tipo,
+            data=t_model.data,
+            status=t_model.status,
+            id_usuario=t_model.id_usuario,
+            descricao=t_model.descricao,
+            id_categoria=t_model.id_categoria,
+            id_perfil=t_model.id_perfil,
+            id_projeto=t_model.id_projeto
         )
-
-    def add(self, transacao: Transacao) -> None:
-        """
-        Implementa o INSERT para o PPI-9 (Lançar Transação).
-        """
-        cursor = self.db.cursor()
-        sql = """
-        INSERT INTO transacao 
-            (id, valor, tipo, data, status, id_usuario, descricao, 
-             id_categoria, id_perfil, id_projeto)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """
-        
-        # Converte o objeto Transacao em uma tupla para o SQL
-        data_tuple = (
-            transacao.id,
-            transacao.valor,
-            transacao.tipo.value,       # Armazena o valor do Enum (ex: "DESPESA")
-            transacao.data.isoformat(), # Armazena data como string ISO
-            transacao.status.value,
-            transacao.id_usuario,
-            transacao.descricao,
-            transacao.id_categoria,
-            transacao.id_perfil,
-            transacao.id_projeto
+    
+    def _map_domain_to_model(self, t_domain: DomainTransacao) -> ModelTransacao:
+        """Converte uma Entidade de Domínio para um Model do SQLAlchemy."""
+        # Cria um novo objeto Model com os dados do Domínio
+        return ModelTransacao(
+            id=t_domain.id,
+            valor=t_domain.valor,
+            tipo=t_domain.tipo,
+            data=t_domain.data,
+            status=t_domain.status,
+            id_usuario=t_domain.id_usuario,
+            descricao=t_domain.descricao,
+            id_categoria=t_domain.id_categoria,
+            id_perfil=t_domain.id_perfil,
+            id_projeto=t_domain.id_projeto
         )
-        
-        cursor.execute(sql, data_tuple)
-        self.db.commit()
-        print(f"Repositório: Salvando transação {transacao.id} no SQLite.")
+    
+    # --- Implementação da Interface ---
 
-    def get_pendentes_by_usuario(self, id_usuario: str) -> List[Transacao]:
-        """
-        Implementa o SELECT para o PPI-10 (Listar Inbox).
-        Busca transações PENDENTES (que ainda não foram categorizadas).
-        """
-        print(f"Repositório: Buscando transações pendentes (Inbox) para {id_usuario}.")
-        cursor = self.db.cursor()
-        # Define quais colunas e em que ordem
-        sql = """
-        SELECT id, valor, tipo, data, status, id_usuario, descricao, 
-               id_categoria, id_perfil, id_projeto
-        FROM transacao
-        WHERE id_usuario = ? AND status = ?
-        ORDER BY data DESC
-        """
+    def add(self, transacao: DomainTransacao) -> None:
+        """ Implementa o INSERT com SQLAlchemy. """
+        # 1. Traduzir do Domínio para o Model de Infra
+        transacao_model = self._map_domain_to_model(transacao)
         
-        cursor.execute(sql, (id_usuario, StatusTransacao.PENDENTE.value))
-        rows = cursor.fetchall()
-        
-        # Mapeia as linhas (tuplas) de volta para objetos Transacao
-        return [self._map_row_to_transacao(row) for row in rows]
+        # 2. Usar a sessão do SQLAlchemy
+        self.db.add(transacao_model)
 
-    def get_by_ids(self, ids_transacao: List[str]) -> List[Transacao]:
-        """
-        Implementa o SELECT...IN para o PPI-11 (Ação em Massa).
-        Busca um conjunto de transações pelos seus IDs.
-        """
-        print(f"Repositório: Buscando transações {ids_transacao} para ação em massa.")
+        # O commit será feito na camada de Rota
+        print(f"Repositório (SQLAlchemy): Adicionando transação {transacao.id}.")
+
+    def get_pendentes_by_usuario(self, id_usuario: str) -> List[DomainTransacao]:
+        """ Implementa o SELECT (Listar Inbox). """
+        print(f"Repositório (SQLAlchemy): Buscando transações pendentes para {id_usuario}.")
+        
+        rows_model = self.db.query(ModelTransacao).filter(
+            ModelTransacao.id_usuario == id_usuario,
+            ModelTransacao.status == StatusTransacao.PENDENTE
+        ).order_by(ModelTransacao.data.desc()).all()
+        
+        # Mapeia os Models (Infra) de volta para Entidades (Domínio)
+        return [self._map_model_to_domain(row) for row in rows_model]
+
+    def get_by_ids(self, ids_transacao: List[str]) -> List[DomainTransacao]:
+        """ Implementa o SELECT...IN(Ação em Massa). """
+        print(f"Repositório (SQLAlchemy): Buscando transações {ids_transacao}.")
         if not ids_transacao:
             return []
             
-        # Cria os placeholders (?) dinamicamente para a cláusula IN
-        # Ex: "WHERE id IN (?, ?, ?)"
-        placeholders = ','.join('?' for _ in ids_transacao)
+        rows_model = self.db.query(ModelTransacao).filter(
+            ModelTransacao.id.in_(ids_transacao)
+        ).all()
         
-        sql = f"""
-        SELECT id, valor, tipo, data, status, id_usuario, descricao, 
-               id_categoria, id_perfil, id_projeto
-        FROM transacao
-        WHERE id IN ({placeholders})
-        """
-        
-        cursor = self.db.cursor()
-        cursor.execute(sql, ids_transacao)
-        rows = cursor.fetchall()
-        
-        return [self._map_row_to_transacao(row) for row in rows]
+        return [self._map_model_to_domain(row) for row in rows_model]
     
-    def update_batch(self, transacoes: List[Transacao]) -> None:
-        """
-        Implementa o UPDATE em lote para o PPI-11 (Categorizar em Massa).
-        Atualiza o status, categoria e perfil das transações.
-        """
-        print(f"Repositório: Atualizando {len(transacoes)} transações em massa.")
+    def update_batch(self, transacoes: List[DomainTransacao]) -> None:
+        """ Implementa o UPDATE em lote (Categorizar em Massa). """
+        print(f"Repositório (SQLAlchemy): Atualizando {len(transacoes)} transações.")
         if not transacoes:
             return
 
-        sql = """
-        UPDATE transacao
-        SET status = ?, id_categoria = ?, id_perfil = ?
-        WHERE id = ?
-        """
-        
-        # Cria uma lista de tuplas para o método 'executemany'
-        # (status, categoria, perfil, id)
-        data_tuples = [
-            (
-                t.status.value,
-                t.id_categoria,
-                t.id_perfil,
-                t.id  # ID para a cláusula WHERE
-            ) for t in transacoes
-        ]
-        
-        cursor = self.db.cursor()
-        cursor.executemany(sql, data_tuples)
-        self.db.commit()
+        for t_domain in transacoes:
+            # O 'merge' atualiza um objeto existente na sessão (baseado na PK)
+            t_model = self._map_domain_to_model(t_domain)
+            self.db.merge(t_model)
     
     def get_dashboard_stats(self, id_usuario: str) -> Dict[str, Any]:
-        """
-        Implementa a agregação SQL para os cards do Dashboard (Wireframes).
-        Calcula saldo total, receitas do mês e despesas do mês.
-        
-        NOTA: Esta consulta considera APENAS transações PROCESSADAS (confirmadas).
-        """
-        print(f"Repositório: Calculando estatísticas do dashboard para {id_usuario}.")
-        
-        # Calcula o primeiro dia do mês atual para os filtros
-        today = datetime.now()
-        start_of_month = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0).isoformat()
+        """ Implementa a agregação SQL para os cards do Dashboard. """
+        print(f"Repositório (SQLAlchemy): Calculando estatísticas para {id_usuario}.")
 
-        sql = """
-        SELECT
-            -- Saldo Atual (Total de Receitas - Total de Despesas)
-            COALESCE(SUM(CASE WHEN tipo = 'RECEITA' THEN valor ELSE -valor END), 0) as saldo_atual,
-            
-            -- Receitas do Mês (Soma de Receitas >= início do mês)
-            COALESCE(SUM(CASE WHEN tipo = 'RECEITA' AND data >= ? THEN valor ELSE 0 END), 0) as receitas_mes,
-            
-            -- Despesas do Mês (Soma de Despesas >= início do mês)
-            COALESCE(SUM(CASE WHEN tipo = 'DESPESA' AND data >= ? THEN valor ELSE 0 END), 0) as despesas_mes
-        FROM transacao
-        WHERE id_usuario = ? AND status = ? 
-        """
+        today = datetime.now()
+        start_of_month = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+        # Expressão de valor (positivo para receita, negativo para despesa)
+        valor_calculado = case(
+            (ModelTransacao.tipo == TipoTransacao.RECEITA, ModelTransacao.valor),
+            else_=-ModelTransacao.valor
+        )
         
-        cursor = self.db.cursor()
-        cursor.execute(sql, (
-            start_of_month, 
-            start_of_month, 
-            id_usuario, 
-            StatusTransacao.PROCESSADO.value # Apenas transações confirmadas
-        ))
+        # Filtros base
+        query_base = self.db.query(ModelTransacao).filter(
+            ModelTransacao.id_usuario == id_usuario,
+            ModelTransacao.status == StatusTransacao.PROCESSADO
+        )
         
-        result = cursor.fetchone()
+        # Saldo total (sem filtro de data)
+        saldo_atual = query_base.with_entities(func.sum(valor_calculado)).scalar()
         
-        if result:
-            return {
-                "saldo_atual": result[0],
-                "receitas_mes": result[1],
-                "despesas_mes": result[2]
-            }
+        # Filtros de data (apenas para estatísticas do mês)
+        query_mes_atual = query_base.filter(ModelTransacao.data >= start_of_month)
         
-        # Caso não retorne nada (usuário novo)
-        return {"saldo_atual": 0.0, "receitas_mes": 0.0, "despesas_mes": 0.0}
+        receitas_mes = query_mes_atual.with_entities(
+            func.sum(case((ModelTransacao.tipo == TipoTransacao.RECEITA, ModelTransacao.valor), else_=0))
+        ).scalar()
+        
+        despesas_mes = query_mes_atual.with_entities(
+            func.sum(case((ModelTransacao.tipo == TipoTransacao.DESPESA, ModelTransacao.valor), else_=0))
+        ).scalar()
+
+        return {
+            "saldo_atual": saldo_atual or 0.0,
+            "receitas_mes": receitas_mes or 0.0,
+            "despesas_mes": despesas_mes or 0.0
+        }

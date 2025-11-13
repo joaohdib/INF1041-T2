@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import func, case
 from typing import List, Dict, Any
-from datetime import datetime
+from datetime import datetime, date
 
 # Entidades de Domínio (o "contrato" do repositório)
 from domain.transacao import Transacao as DomainTransacao
@@ -140,7 +140,50 @@ class TransacaoRepositorySqlite(ITransacaoRepository):
             "despesas_mes": despesas_mes or 0.0
         }
     
-def get_by_id(self, id_transacao: str) -> DomainTransacao | None:
+    def get_by_id(self, id_transacao: str) -> DomainTransacao | None:
         """ Busca uma transação única pelo seu ID. """
         model = self.db.query(ModelTransacao).filter_by(id=id_transacao).first()
         return self._map_model_to_domain(model)
+    
+    def get_by_filters(self, id_usuario: str, 
+                       data_de: date | None = None, 
+                       data_ate: date | None = None, 
+                       valor_min: float | None = None, 
+                       valor_max: float | None = None, 
+                       descricao: str | None = None,
+                       status: StatusTransacao | None = None) -> List[DomainTransacao]:
+        
+        print(f"Repositório (SQLAlchemy): Buscando transações com filtros para {id_usuario}.")
+        
+        # Constrói a query dinamicamente
+        query = self.db.query(ModelTransacao).filter(
+            ModelTransacao.id_usuario == id_usuario
+        )
+
+        if status:
+            query = query.filter(ModelTransacao.status == status)
+        
+        if data_de:
+            # Filtra a partir do início do dia
+            start_of_day = datetime.combine(data_de, datetime.min.time())
+            query = query.filter(ModelTransacao.data >= start_of_day)
+
+        if data_ate:
+            # Filtra até o fim do dia
+            end_of_day = datetime.combine(data_ate, datetime.max.time())
+            query = query.filter(ModelTransacao.data <= end_of_day)
+
+        if valor_min is not None:
+            query = query.filter(ModelTransacao.valor >= valor_min)
+
+        if valor_max is not None:
+            query = query.filter(ModelTransacao.valor <= valor_max)
+            
+        if descricao:
+            # Filtro "contém" (case-insensitive com ILIKE ou LIKE)
+            query = query.filter(ModelTransacao.descricao.like(f"%{descricao}%"))
+
+        # Adiciona ordenação e executa
+        rows_model = query.order_by(ModelTransacao.data.desc()).all()
+        
+        return [self._map_model_to_domain(row) for row in rows_model]

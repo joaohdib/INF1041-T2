@@ -1,47 +1,64 @@
 import pytest
 from unittest.mock import MagicMock
-from datetime import datetime
+from datetime import datetime, date
 from typing import List
 
 from use_cases.transacao_use_cases import (
     LancarTransacao, 
     ListarTransacoesPendentes,
     CategorizarTransacoesEmLote,
-    ObterEstatisticasDashboard
+    ObterEstatisticasDashboard,
+    FiltrarTransacoes
 )
 from use_cases.repository_interfaces import ITransacaoRepository
 from domain.transacao import Transacao, StatusTransacao, TipoTransacao
 
-def test_lancar_transacao_rapida_sucesso():
+def test_lancar_transacao_rapida_sucesso_cai_na_inbox():
     # 1. Arrange 
-    # Criamos um "Mock" do repositório.
     mock_repo = MagicMock(spec=ITransacaoRepository)
-    
     use_case = LancarTransacao(transacao_repo=mock_repo)
     
-    # Dados de entrada 
     input_data = {
         "id_usuario": "user123",
         "valor": 25.00,
         "tipo": "DESPESA",
         "descricao": "Almoço"
+        # Sem categoria/perfil
     }
 
     # 2. Act 
     transacao_criada = use_case.execute(**input_data)
 
     # 3. Assert 
-    
-    # Verificamos se a transação foi criada corretamente
     assert isinstance(transacao_criada, Transacao)
-    assert transacao_criada.valor == 25.00
-    assert transacao_criada.tipo == TipoTransacao.DESPESA
-    assert transacao_criada.descricao == "Almoço"
     # Verificamos se ela está PENDENTE 
     assert transacao_criada.status == StatusTransacao.PENDENTE 
+    mock_repo.add.assert_called_once_with(transacao_criada)
 
     # Verificamos se o método "add" do repositório foi chamado exatamente uma vez, com o objeto correto.
     mock_repo.add.assert_called_once_with(transacao_criada)
+
+def test_lancar_transacao_completa_sucesso_pula_inbox():
+    # 1. Arrange 
+    mock_repo = MagicMock(spec=ITransacaoRepository)
+    use_case = LancarTransacao(transacao_repo=mock_repo)
+    
+    input_data = {
+        "id_usuario": "user123",
+        "valor": 200.00,
+        "tipo": "DESPESA",
+        "descricao": "Consulta Médica",
+        "id_categoria": "cat_saude", # Lançamento completo
+        "id_perfil": "perfil_pessoal" # Lançamento completo
+    }
+
+    # 2. Act 
+    transacao_criada = use_case.execute(**input_data)
+
+    # 3. Assert 
+    # Verificamos se ela está PROCESSADA
+    assert transacao_criada.status == StatusTransacao.PROCESSADO
+    assert transacao_criada.id_categoria == "cat_saude"
 
 def test_lancar_transacao_rapida_falha_valor_zero():
     # 1. Arrange 
@@ -80,6 +97,53 @@ def test_listar_transacoes_pendentes_sucesso():
     mock_repo.get_pendentes_by_usuario.assert_called_once_with(id_usuario_teste)
     assert len(resultado) == 2
     assert resultado[0].status == StatusTransacao.PENDENTE
+
+def test_filtrar_transacoes_sucesso_delega_ao_repo():
+    # 1. Arrange
+    mock_repo = MagicMock(spec=ITransacaoRepository)
+    use_case = FiltrarTransacoes(transacao_repo=mock_repo)
+    
+    filtros = {
+        "id_usuario": "user_filter",
+        "data_de": date(2025, 1, 1),
+        "data_ate": date(2025, 1, 31),
+        "valor_min": 50.0,
+        "valor_max": 100.0,
+        "descricao": "Restaurante",
+        "status": StatusTransacao.PENDENTE
+    }
+
+    # 2. Act
+    use_case.execute(**filtros)
+
+    # 3. Assert
+    # Verifica se o caso de uso chamou o repositório com os mesmos parâmetros
+    mock_repo.get_by_filters.assert_called_once_with(**filtros)
+
+def test_filtrar_transacoes_falha_data_invalida():
+    # 1. Arrange
+    mock_repo = MagicMock(spec=ITransacaoRepository)
+    use_case = FiltrarTransacoes(transacao_repo=mock_repo)
+    
+    data_de = date(2025, 2, 1)
+    data_ate = date(2025, 1, 31) # Data 'Até' ANTES da 'De'
+
+    # 2. Act & 3. Assert
+    with pytest.raises(ValueError, match="A data 'Até' deve ser maior"):
+        use_case.execute(id_usuario="u1", data_de=data_de, data_ate=data_ate)
+    
+    mock_repo.get_by_filters.assert_not_called()
+
+def test_filtrar_transacoes_falha_valor_invalido():
+    # 1. Arrange
+    mock_repo = MagicMock(spec=ITransacaoRepository)
+    use_case = FiltrarTransacoes(transacao_repo=mock_repo)
+    
+    # 2. Act & 3. Assert
+    with pytest.raises(ValueError, match="O valor 'Máximo' deve ser maior"):
+        use_case.execute(id_usuario="u1", valor_min=100.0, valor_max=50.0)
+    
+    mock_repo.get_by_filters.assert_not_called()
 
 def test_categorizar_transacoes_em_lote_sucesso():
     # 1. Arrange

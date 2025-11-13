@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, date
 from typing import List, Dict, Any
 from domain.transacao import Transacao, TipoTransacao, StatusTransacao
 from domain.anexo import Anexo
@@ -15,11 +15,22 @@ class LancarTransacao:
         self.transacao_repo = transacao_repo
 
     def execute(self, id_usuario: str, valor: float, tipo: str, 
-                data: datetime | None = None, descricao: str | None = None) -> Transacao:
+                data: datetime | None = None, 
+                descricao: str | None = None,
+                id_categoria: str | None = None, # NOVO
+                id_perfil: str | None = None      # NOVO
+                ) -> Transacao:
         
         # 1. Validação de regras de negócio
         if valor <= 0:
             raise ValueError("O valor deve ser maior que zero.")
+        
+        # Se for um lançamento completo (com categoria/perfil), pula a Inbox.
+        if id_categoria and id_perfil:
+            status = StatusTransacao.PROCESSADO
+        else:
+            # Se for um lançamento rápido (sem detalhes), cai na Inbox.
+            status = StatusTransacao.PENDENTE
             
         # 2. Criação da entidade
         transacao = Transacao(
@@ -28,7 +39,9 @@ class LancarTransacao:
             tipo=TipoTransacao(tipo.upper()),
             data=data or datetime.now(),
             descricao=descricao,
-            status=StatusTransacao.PENDENTE # Novas transações vão para a Inbox
+            status=status,  
+            id_categoria=id_categoria, 
+            id_perfil=id_perfil 
         )
         
         # 3. Persistência
@@ -135,7 +148,7 @@ class CategorizarTransacoesEmLote:
         
         # 3. Aplica a regra de negócio (Camada de Domínio)
         for t in transacoes:
-            # Regra de segurança: garante que o usuário só pode categorizar
+            # garante que o usuário só pode categorizar
             # transações que pertencem a ele.
             if t.id_usuario != id_usuario:
                 print(f"Aviso: Tentativa de categorizar transação {t.id} de outro usuário.")
@@ -152,6 +165,35 @@ class CategorizarTransacoesEmLote:
         # 5. Retorna o número de transações atualizadas com sucesso
         return len(transacoes_atualizadas)
     
+class FiltrarTransacoes:
+
+    def __init__(self, transacao_repo: ITransacaoRepository):
+        self.transacao_repo = transacao_repo
+
+    def execute(self, id_usuario: str, 
+                data_de: date | None = None, 
+                data_ate: date | None = None, 
+                valor_min: float | None = None, 
+                valor_max: float | None = None, 
+                descricao: str | None = None,
+                status: StatusTransacao | None = None) -> List[Transacao]:
+        
+        # 1. Validações de negócio
+        if data_de and data_ate and data_ate < data_de:
+            raise ValueError("A data 'Até' deve ser maior ou igual à data 'De'.")
+        if valor_min is not None and valor_max is not None and valor_max < valor_min:
+            raise ValueError("O valor 'Máximo' deve ser maior ou igual ao valor 'Mínimo'.")
+
+        # 2. Delega para o repositório
+        return self.transacao_repo.get_by_filters(
+            id_usuario=id_usuario,
+            data_de=data_de,
+            data_ate=data_ate,
+            valor_min=valor_min,
+            valor_max=valor_max,
+            descricao=descricao,
+            status=status
+        )
 
 class ObterEstatisticasDashboard:
     """

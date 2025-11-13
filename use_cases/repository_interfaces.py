@@ -1,8 +1,10 @@
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any
-from domain.transacao import Transacao
+from datetime import date
+from domain.transacao import Transacao, StatusTransacao
 from domain.meta import Meta
 from domain.anexo import Anexo
+
 
 # Os Casos de Uso dependem destas abstrações, não de implementações concretas.
 
@@ -30,6 +32,17 @@ class ITransacaoRepository(ABC):
     @abstractmethod
     def get_by_id(self, id_transacao: str) -> Transacao | None:
         """ Busca uma transação única pelo seu ID. """
+        pass
+
+    @abstractmethod
+    def get_by_filters(self, id_usuario: str, 
+                       data_de: date | None = None, 
+                       data_ate: date | None = None, 
+                       valor_min: float | None = None, 
+                       valor_max: float | None = None, 
+                       descricao: str | None = None,
+                       status: StatusTransacao | None = None) -> List[Transacao]:
+        """ Busca transações com base em filtros dinâmicos. """
         pass
 
 

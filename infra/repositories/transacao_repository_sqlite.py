@@ -139,3 +139,8 @@ class TransacaoRepositorySqlite(ITransacaoRepository):
             "receitas_mes": receitas_mes or 0.0,
             "despesas_mes": despesas_mes or 0.0
         }
+    
+def get_by_id(self, id_transacao: str) -> DomainTransacao | None:
+        """ Busca uma transação única pelo seu ID. """
+        model = self.db.query(ModelTransacao).filter_by(id=id_transacao).first()
+        return self._map_model_to_domain(model)

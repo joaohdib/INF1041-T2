@@ -3,7 +3,6 @@ from unittest.mock import MagicMock
 from datetime import datetime
 from typing import List
 
-# Importando todas as classes de Casos de Uso
 from use_cases.transacao_use_cases import (
     LancarTransacao, 
     ListarTransacoesPendentes,
@@ -41,8 +40,7 @@ def test_lancar_transacao_rapida_sucesso():
     # Verificamos se ela está PENDENTE 
     assert transacao_criada.status == StatusTransacao.PENDENTE 
 
-    # Verificamos se o método "add" do repositório foi chamado
-    # exatamente uma vez, com o objeto correto.
+    # Verificamos se o método "add" do repositório foi chamado exatamente uma vez, com o objeto correto.
     mock_repo.add.assert_called_once_with(transacao_criada)
 
 def test_lancar_transacao_rapida_falha_valor_zero():

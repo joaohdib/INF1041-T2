@@ -1,7 +1,11 @@
 from datetime import datetime
 from typing import List, Dict, Any
 from domain.transacao import Transacao, TipoTransacao, StatusTransacao
-from use_cases.repository_interfaces import ITransacaoRepository
+from domain.anexo import Anexo
+from use_cases.repository_interfaces import (
+    ITransacaoRepository, 
+    IAnexoRepository
+)
 from infra.storage.storage_interface import IAnexoStorage
 import mimetypes
 
@@ -33,35 +37,69 @@ class LancarTransacao:
     
 
 class AnexarReciboTransacao:
-    # Limites (5MB)
+    """
+    Caso de Uso: Anexar foto do recibo.
+    Implementação finalizada.
+    """
+    # Limites (5MB) - Cenário de Falha
     MAX_SIZE_BYTES = 5 * 1024 * 1024
+    # Cenário de Falha
     ALLOWED_MIMES = ["image/jpeg", "image/png", "application/pdf"]
 
-    def __init__(self, storage: IAnexoStorage, transacao_repo: ITransacaoRepository):
+    def __init__(self, storage: IAnexoStorage, 
+                 anexo_repo: IAnexoRepository, 
+                 transacao_repo: ITransacaoRepository):
         self.storage = storage
-        # Poderíamos usar um IAnexoRepository, mas por simplicidade
-        # vamos apenas atualizar a transação. # TODO
+        self.anexo_repo = anexo_repo
+        self.transacao_repo = transacao_repo
 
-    def execute(self, id_transacao: str, file_stream, file_name: str, 
-                content_type: str, content_length: int) -> None:
+    def execute(self, id_usuario: str, id_transacao: str, 
+                file_stream: Any, file_name: str, 
+                content_type: str, content_length: int) -> Anexo:
         
-        # 1. Validações
+        # 1. Validações do arquivo (Cenários de Falha)
         if content_type not in self.ALLOWED_MIMES:
-            raise ValueError(f"Formato de arquivo não suportado: {content_type}")
+            raise ValueError(f"Formato de arquivo não suportado: {content_type}. (Permitidos: JPG, PNG, PDF)")
         
         if content_length > self.MAX_SIZE_BYTES:
             raise ValueError("Arquivo excede o tamanho máximo de 5MB.")
-            
-        # 2. Salvar no Storage
-        path = self.storage.save(file_stream, file_name, content_type)
         
-        # 3. Associar à Transação
-        print(f"Anexo salvo para transação {id_transacao} em {path}")
-        pass
+        if not file_name:
+            raise ValueError("Nome de arquivo inválido.")
+
+        # 2. Validação da Transação (Segurança e Integridade)
+        transacao = self.transacao_repo.get_by_id(id_transacao)
+        
+        if not transacao:
+            raise ValueError("Transação não encontrada.")
+        
+        # Regra de Segurança: Usuário só pode anexar em suas transações
+        if transacao.id_usuario != id_usuario:
+            raise PermissionError("Usuário não autorizado a acessar esta transação.")
+            
+        # 3. Salvar no Storage (Camada de Infra)
+        # O storage lida com a E/S de disco e retorna o caminho
+        caminho_storage = self.storage.save(file_stream, file_name, content_type)
+        
+        # 4. Criar Entidade de Domínio
+        anexo = Anexo(
+            id_transacao=id_transacao,
+            nome_arquivo=file_name,
+            caminho_storage=caminho_storage,
+            tipo_mime=content_type,
+            tamanho_bytes=content_length
+        )
+        
+        # 5. Salvar metadados no Repositório (Camada de Infra)
+        self.anexo_repo.add(anexo)
+        
+        print(f"Anexo {anexo.id} salvo para transação {id_transacao}.")
+        return anexo
+
 
 class ListarTransacoesPendentes:
     """
-    Caso de Uso para PPI-10: Visualizar Inbox.
+    Caso de Uso: Visualizar Inbox.
     Busca todas as transações do usuário que estão PENDENTES.
     """
     def __init__(self, transacao_repo: ITransacaoRepository):
@@ -72,9 +110,10 @@ class ListarTransacoesPendentes:
         transacoes_pendentes = self.transacao_repo.get_pendentes_by_usuario(id_usuario)
         return transacoes_pendentes
     
+
 class CategorizarTransacoesEmLote:
     """
-    Caso de Uso para PPI-11: Categorizar em Massa.
+    Caso de Uso: Categorizar em Massa.
     Aplica categoria e perfil em múltiplas transações de uma vez.
     """
     def __init__(self, transacao_repo: ITransacaoRepository):
@@ -113,6 +152,7 @@ class CategorizarTransacoesEmLote:
         # 5. Retorna o número de transações atualizadas com sucesso
         return len(transacoes_atualizadas)
     
+
 class ObterEstatisticasDashboard:
     """
     Caso de Uso para os cards do Dashboard (Wireframe image_c7f9e7.png).

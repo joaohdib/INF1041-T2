@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from infra.db.database import get_db_connection
+from infra.db.database import get_db_session
 from infra.repositories.meta_repository_sqlite import MetaRepositorySqlite
 from use_cases.meta_use_cases import CriarMeta
 
@@ -11,9 +11,10 @@ def criar_meta_route():
     id_usuario = "usuario_mock_id"  # Em produção: viria do token
     data = request.json or {}
 
+    db_session = get_db_session()
+
     try:
-        db_conn = get_db_connection()
-        meta_repo = MetaRepositorySqlite(db_conn)
+        meta_repo = MetaRepositorySqlite(db_session)
         use_case = CriarMeta(meta_repo)
 
         resultado = use_case.execute(
@@ -24,9 +25,14 @@ def criar_meta_route():
             id_perfil=data.get('id_perfil')
         )
 
+        db_session.commit()
         return jsonify(resultado), 201
 
     except ValueError as e:
+        db_session.rollback()
         return jsonify({"erro": str(e)}), 400
     except Exception as e:
+        db_session.rollback()
         return jsonify({"erro": f"Erro interno: {e}"}), 500
+    finally:
+        db_session.close()

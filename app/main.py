@@ -9,6 +9,7 @@ try:
     # --- Importações após ajuste do Path ---
     from app.routes.transacao_routes import transacao_bp
     from app.routes.meta_routes import meta_bp
+    from app.routes.reserva_routes import reserva_bp
     from infra.db.database import init_db, Session
 except ImportError as e:
     print("Erro de importação. Verifique a estrutura de pastas e os __init__.py")
@@ -31,6 +32,7 @@ app = Flask(__name__)
 # Registro dos Blueprints (rotas)
 app.register_blueprint(transacao_bp, url_prefix='/api/transacoes')
 app.register_blueprint(meta_bp, url_prefix='/api/metas')
+app.register_blueprint(reserva_bp, url_prefix='/api/reservas')
 
 # --- Gerenciamento de Sessão (Teardown) ---
 @app.teardown_appcontext
@@ -45,7 +47,7 @@ def index():
     """ Rota de verificação para saber se o servidor está online. """
     return jsonify({
         "status": "Servidor da API Financeira (SQLAlchemy) está online!",
-        "documentacao_rotas": "/api/transacoes/... e /api/metas/..."
+        "documentacao_rotas": "/api/transacoes/... /api/metas/... e /api/reservas/..."
     })
 
 # --- Ponto de Entrada ---

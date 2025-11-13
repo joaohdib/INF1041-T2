@@ -3,6 +3,7 @@ from typing import List, Dict, Any
 from datetime import date
 from domain.transacao import Transacao, StatusTransacao
 from domain.meta import Meta
+from domain.reserva import Reserva
 from domain.anexo import Anexo
 
 
@@ -57,6 +58,36 @@ class IMetaRepository(ABC):
 
     @abstractmethod
     def update(self, meta: Meta) -> None:
+        pass
+
+    @abstractmethod
+    def get_by_id(self, id_meta: str) -> Meta | None:
+        pass
+
+
+class IReservaRepository(ABC):
+    @abstractmethod
+    def add(self, reserva: Reserva) -> None:
+        pass
+
+    @abstractmethod
+    def update(self, reserva: Reserva) -> None:
+        pass
+
+    @abstractmethod
+    def delete(self, reserva_id: str) -> None:
+        pass
+
+    @abstractmethod
+    def get_by_id(self, reserva_id: str) -> Reserva | None:
+        pass
+
+    @abstractmethod
+    def get_by_meta(self, id_meta: str) -> List[Reserva]:
+        pass
+
+    @abstractmethod
+    def get_total_by_meta(self, id_meta: str) -> float:
         pass
 
 class IAnexoRepository(ABC):

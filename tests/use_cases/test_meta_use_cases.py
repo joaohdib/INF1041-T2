@@ -15,7 +15,16 @@ class FakeMetaRepository(IMetaRepository):
         return [m for m in self.metas if m.id_usuario == id_usuario]
 
     def update(self, meta: Meta) -> None:
-        pass
+        for idx, item in enumerate(self.metas):
+            if item.id == meta.id:
+                self.metas[idx] = meta
+                return
+
+    def get_by_id(self, id_meta: str) -> Meta | None:
+        for meta in self.metas:
+            if meta.id == id_meta:
+                return meta
+        return None
 
 
 def test_criar_meta_sucesso_calculo_mensal():

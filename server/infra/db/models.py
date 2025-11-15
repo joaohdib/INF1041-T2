@@ -6,9 +6,6 @@ from domain.transacao import TipoTransacao, StatusTransacao
 from domain.meta import Meta as DomainMeta
 from domain.transacao import Transacao as DomainTransacao
 
-# NOTA: Estes são os "Models de Infra", não as "Entidades de Domínio".
-# Eles representam as TABELAS, não a regra de negócio.
-
 class Perfil(Base):
     __tablename__ = "perfil"
     id = Column(String, primary_key=True)
@@ -33,9 +30,8 @@ class Transacao(Base):
     
     id_categoria = Column(String, ForeignKey("categoria.id"), nullable=True)
     id_perfil = Column(String, ForeignKey("perfil.id"), nullable=True)
-    id_projeto = Column(String, nullable=True) 
+    id_projeto = Column(String, nullable=True)
 
-    # Relacionamentos (opcional, mas bom para queries futuras)
     categoria = relationship("Categoria")
     perfil = relationship("Perfil")
 
@@ -48,11 +44,13 @@ class Meta(Base):
     valor_atual = Column(Float, default=0.0)
     data_limite = Column(DateTime, nullable=True)
     concluida_em = Column(DateTime, nullable=True)
+    finalizada_em = Column(DateTime, nullable=True)
     
     id_perfil = Column(String, ForeignKey("perfil.id"), nullable=True)
     
     perfil = relationship("Perfil")
     reservas = relationship("Reserva", back_populates="meta", cascade="all, delete-orphan")
+    usos = relationship("MetaUso", back_populates="meta", cascade="all, delete-orphan")
 
 class Anexo(Base):
     __tablename__ = "anexo"
@@ -64,7 +62,6 @@ class Anexo(Base):
     tamanho_bytes = Column(Integer, nullable=False)
     
     transacao = relationship("Transacao")
-
 
 class Reserva(Base):
     __tablename__ = "reserva"
@@ -79,3 +76,14 @@ class Reserva(Base):
 
     meta = relationship("Meta", back_populates="reservas")
     transacao = relationship("Transacao", backref="reservas")
+
+class MetaUso(Base):
+    __tablename__ = "meta_uso"
+    id = Column(String, primary_key=True)
+    id_meta = Column(String, ForeignKey("meta.id", ondelete="CASCADE"), nullable=False)
+    id_transacao = Column(String, ForeignKey("transacao.id", ondelete="CASCADE"), nullable=False)
+    valor = Column(Float, nullable=False)
+    criado_em = Column(DateTime, nullable=False, server_default=func.now())
+
+    meta = relationship("Meta", back_populates="usos")
+    transacao = relationship("Transacao")

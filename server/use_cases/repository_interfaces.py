@@ -7,8 +7,6 @@ from domain.reserva import Reserva
 from domain.anexo import Anexo
 
 
-# Os Casos de Uso dependem destas abstrações, não de implementações concretas.
-
 class ITransacaoRepository(ABC):
     @abstractmethod
     def add(self, transacao: Transacao) -> None:
@@ -16,12 +14,10 @@ class ITransacaoRepository(ABC):
 
     @abstractmethod
     def update(self, transacao: Transacao) -> None:
-        """ Atualiza uma transação existente. """
         pass
 
     @abstractmethod
     def delete(self, id_transacao: str) -> None:
-        """ Deleta uma transação pelo ID. """
         pass
 
     @abstractmethod
@@ -42,7 +38,6 @@ class ITransacaoRepository(ABC):
 
     @abstractmethod
     def get_by_id(self, id_transacao: str) -> Transacao | None:
-        """ Busca uma transação única pelo seu ID. """
         pass
 
     @abstractmethod
@@ -53,12 +48,11 @@ class ITransacaoRepository(ABC):
                        valor_max: float | None = None, 
                        descricao: str | None = None,
                        status: StatusTransacao | None = None,
-                       id_categoria: str | None = None, # NOVO
-                       id_perfil: str | None = None,    # NOVO
-                       sem_categoria: bool = False,   # NOVO
-                       sem_perfil: bool = False       # NOVO
+                       id_categoria: str | None = None,
+                       id_perfil: str | None = None,
+                       sem_categoria: bool = False,
+                       sem_perfil: bool = False
                        ) -> List[Transacao]:
-        """ Busca transações com base em filtros dinâmicos. """
         pass
 
 
@@ -77,6 +71,10 @@ class IMetaRepository(ABC):
 
     @abstractmethod
     def get_by_id(self, id_meta: str) -> Meta | None:
+        pass
+
+    @abstractmethod
+    def sum_reservas(self, id_meta: str) -> float:
         pass
 
 
@@ -106,15 +104,27 @@ class IReservaRepository(ABC):
         pass
 
 class IAnexoRepository(ABC):
-    """
-    Interface de Repositório para metadados de Anexos.
-    """
     @abstractmethod
     def add(self, anexo: Anexo) -> None:
-        """ Adiciona os metadados de um novo anexo ao banco. """
         pass
     
     @abstractmethod
     def get_by_transacao_id(self, id_transacao: str) -> List[Anexo]:
-        """ Lista todos os anexos de uma transação. """
+        pass
+
+class IMetaUsoRepository(ABC):
+    @abstractmethod
+    def add_uso(self, id_meta: str, id_transacao: str, valor: float) -> Any:
+        pass
+
+    @abstractmethod
+    def get_transacao(self, id_transacao: str) -> Any:
+        pass
+
+    @abstractmethod
+    def sum_uso_por_meta(self, id_meta: str) -> float:
+        pass
+
+    @abstractmethod
+    def get_usos_por_meta(self, id_meta: str) -> List[Any]:
         pass

@@ -79,3 +79,14 @@ class Reserva(Base):
 
     meta = relationship("Meta", back_populates="reservas")
     transacao = relationship("Transacao", backref="reservas")
+
+
+class MapeamentoCSV(Base):
+    __tablename__ = "mapeamento_csv"
+    id = Column(String, primary_key=True)
+    id_usuario = Column(String, nullable=False)
+    nome = Column(String, nullable=False)
+    coluna_data = Column(String, nullable=False)
+    coluna_valor = Column(String, nullable=False)
+    coluna_descricao = Column(String, nullable=False)
+    criado_em = Column(DateTime, nullable=False, server_default=func.now())

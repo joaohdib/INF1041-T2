@@ -5,6 +5,7 @@ from domain.transacao import Transacao, StatusTransacao
 from domain.meta import Meta
 from domain.reserva import Reserva
 from domain.anexo import Anexo
+from domain.mapeamento_csv import MapeamentoCSV
 
 
 # Os Casos de Uso dependem destas abstrações, não de implementações concretas.
@@ -113,8 +114,21 @@ class IAnexoRepository(ABC):
     def add(self, anexo: Anexo) -> None:
         """ Adiciona os metadados de um novo anexo ao banco. """
         pass
-    
+
+
+class IMapeamentoCSVRepository(ABC):
     @abstractmethod
-    def get_by_transacao_id(self, id_transacao: str) -> List[Anexo]:
-        """ Lista todos os anexos de uma transação. """
+    def add(self, mapeamento: MapeamentoCSV) -> MapeamentoCSV:
+        pass
+
+    @abstractmethod
+    def get_by_usuario(self, id_usuario: str) -> List[MapeamentoCSV]:
+        pass
+
+    @abstractmethod
+    def get_by_id(self, id_mapeamento: str) -> MapeamentoCSV | None:
+        pass
+
+    @abstractmethod
+    def exists_nome(self, id_usuario: str, nome: str) -> bool:
         pass

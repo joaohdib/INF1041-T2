@@ -19,6 +19,10 @@
         <div class="inbox-header">
             <h2>Caixa de Entrada</h2>
             <div class="botoes-acao-inbox">
+                <button id="btn-importar-extrato" class="btn-acao-header btn-importar">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"></path><polyline points="7 9 12 4 17 9"></polyline><line x1="12" y1="4" x2="12" y2="16"></line></svg>
+                    Importar
+                </button>
                 <button id="btn-abrir-filtros" class="btn-acao-header">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"></path></svg>
                     Filtros
@@ -150,6 +154,54 @@
             <div class="modal-botoes">
                  <button type="button" id="btn-fechar-anexo-viewer" class="btn-secondary">Fechar</button>
             </div>
+        </div>
+    </div>
+
+    <div id="modal-importacao-extrato" class="modal-backdrop hidden">
+        <div class="modal" style="max-width: 520px;">
+            <form id="form-importacao-extrato" enctype="multipart/form-data">
+                <h2>Importar extrato bancário</h2>
+                <p>Importe arquivos .csv ou .ofx. Todas as transações irão para a Inbox para categorização.</p>
+
+                <div class="form-group">
+                    <label for="import-arquivo">Arquivo</label>
+                    <input type="file" id="import-arquivo" name="arquivo" accept=".csv,.ofx" required>
+                </div>
+
+                <div class="form-group checkbox-inline">
+                    <input type="checkbox" id="checkbox-sem-cabecalho">
+                    <label for="checkbox-sem-cabecalho">Arquivo não possui cabeçalho</label>
+                </div>
+
+                <div class="form-group">
+                    <label for="select-mapeamento">Mapeamento salvo</label>
+                    <select id="select-mapeamento">
+                        <option value="">Selecionar mapeamento...</option>
+                    </select>
+                </div>
+
+                <div id="mapeamento-manual" class="form-group hidden">
+                    <p>Não reconhecemos esse CSV. Associe as colunas:</p>
+                    <label>Coluna de Data</label>
+                    <select id="map-data"></select>
+                    <label>Coluna de Valor</label>
+                    <select id="map-valor"></select>
+                    <label>Coluna de Descrição</label>
+                    <select id="map-descricao"></select>
+                </div>
+
+                <div class="form-group">
+                    <label class="checkbox-inline">
+                        <input type="checkbox" id="checkbox-salvar-mapeamento"> Salvar mapeamento para futuras importações
+                    </label>
+                    <input type="text" id="input-nome-mapeamento" class="hidden" placeholder="Nome do mapeamento (ex: Banco XPTO)">
+                </div>
+
+                <div class="modal-botoes">
+                    <button type="button" id="btn-cancelar-import" class="btn-secondary">Cancelar</button>
+                    <button type="submit" class="btn-primary">Importar</button>
+                </div>
+            </form>
         </div>
     </div>
 

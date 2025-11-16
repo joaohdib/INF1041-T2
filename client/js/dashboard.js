@@ -1,5 +1,7 @@
 import { api } from './api.js';
 
+const broadcastChannel = new BroadcastChannel('plano_app_channel');
+
 document.addEventListener('DOMContentLoaded', () => {
     
     // --- Elementos do DOM ---
@@ -101,6 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
         modalBackdrop.classList.add('hidden');
     }
 
+
     /** Lida com o envio do formulário de transação */
     async function handleLancarTransacao(event) {
         event.preventDefault();
@@ -197,4 +200,5 @@ document.addEventListener('DOMContentLoaded', () => {
             carregarDashboard();
         }
     };
+
 });

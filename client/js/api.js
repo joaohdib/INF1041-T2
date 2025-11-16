@@ -110,7 +110,16 @@ export const api = {
         if (!response.ok) throw new Error('Falha ao buscar perfis');
         return response.json();
     },
-    
+
+    /**
+     * Busca mapeamentos salvos para importação.
+     */
+    getMapeamentosImportacao: async () => {
+        const response = await fetch(`${API_URL}/transacoes/importacao/mapeamentos`);
+        if (!response.ok) throw new Error('Falha ao carregar mapeamentos');
+        return response.json();
+    },
+
     /**
      * --- Busca anexos de uma transação ---
      * (Backend: GET /api/transacoes/<id>/anexos)
@@ -118,6 +127,21 @@ export const api = {
     getAnexos: async (transacaoId) => {
         const response = await fetch(`${API_URL}/transacoes/${transacaoId}/anexos`);
         if (!response.ok) throw new Error('Falha ao buscar anexos');
+        return response.json();
+    },
+
+    /**
+     * Importa extratos CSV/OFX.
+     */
+    importarExtrato: async (formData) => {
+        const response = await fetch(`${API_URL}/transacoes/importar_extrato`, {
+            method: 'POST',
+            body: formData
+        });
+        if (!response.ok) {
+            const erro = await response.json().catch(() => ({ erro: 'Erro na importação' }));
+            throw new Error(erro.erro || 'Falha ao importar extrato');
+        }
         return response.json();
     }
 };

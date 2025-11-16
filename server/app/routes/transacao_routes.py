@@ -1,3 +1,4 @@
+import json
 from flask import Blueprint, request, jsonify
 from datetime import date, datetime
 from use_cases.transacao_use_cases import (
@@ -10,8 +11,16 @@ from use_cases.transacao_use_cases import (
     AtualizarTransacao,
     DeletarTransacao
 )
+from use_cases.importacao_use_cases import (
+    ImportarExtratoBancario,
+    SalvarMapeamentoCSV,
+    ListarMapeamentosCSV,
+)
 from infra.repositories.transacao_repository_sqlite import TransacaoRepositorySqlite
 from infra.repositories.anexo_repository_sqlite import AnexoRepositorySqlite
+from infra.repositories.mapeamento_csv_repository_sqlite import (
+    MapeamentoCSVRepositorySqlite,
+)
 from infra.storage.anexo_storage_local import AnexoStorageLocal
 from infra.db.database import get_db_session 
 from domain.transacao import Transacao, StatusTransacao
@@ -225,6 +234,103 @@ def deletar_transacao_route(id_transacao: str):
     except Exception as e:
         db_session.rollback()
         return jsonify({"erro": f"Erro interno: {e}"}), 500
+    finally:
+        db_session.close()
+
+@transacao_bp.route('/importar_extrato', methods=['POST'])
+def importar_extrato_route():
+    id_usuario = "usuario_mock_id"
+    db_session = get_db_session()
+
+    try:
+        if 'arquivo' not in request.files:
+            return jsonify({'erro': "Nenhum arquivo enviado."}), 400
+
+        arquivo = request.files['arquivo']
+        if not arquivo.filename:
+            return jsonify({'erro': "Arquivo inválido."}), 400
+
+        try:
+            mapping_payload = request.form.get('mapeamento_colunas')
+            mapping = json.loads(mapping_payload) if mapping_payload else None
+        except json.JSONDecodeError:
+            return jsonify({'erro': "Mapeamento de colunas inválido."}), 400
+
+        mapping_id = request.form.get('id_mapeamento') or None
+        salvar_nome = request.form.get('salvar_mapeamento_nome') or None
+        sem_cabecalho = request.form.get('sem_cabecalho', 'false').lower() == 'true'
+
+        conteudo = arquivo.read()
+
+        transacao_repo = TransacaoRepositorySqlite(db_session)
+        mapeamento_repo = MapeamentoCSVRepositorySqlite(db_session)
+
+        saved_mapping_id = None
+        if salvar_nome:
+            if not mapping:
+                return jsonify({'erro': "Para salvar o mapeamento informe as colunas."}), 400
+            salvar_uc = SalvarMapeamentoCSV(mapeamento_repo)
+            salvo = salvar_uc.execute(
+                id_usuario=id_usuario,
+                nome=salvar_nome,
+                coluna_data=mapping.get('data'),
+                coluna_valor=mapping.get('valor'),
+                coluna_descricao=mapping.get('descricao')
+            )
+            saved_mapping_id = salvo.id
+            mapping_id = saved_mapping_id
+
+        use_case = ImportarExtratoBancario(transacao_repo, mapeamento_repo)
+        resultado = use_case.execute(
+            id_usuario=id_usuario,
+            file_bytes=conteudo,
+            file_name=arquivo.filename,
+            column_mapping=mapping,
+            mapping_id=mapping_id,
+            sem_cabecalho=sem_cabecalho
+        )
+
+        if saved_mapping_id:
+            resultado['mapeamento_salvo_id'] = saved_mapping_id
+
+        db_session.commit()
+        return jsonify(resultado), 201
+
+    except ValueError as e:
+        db_session.rollback()
+        return jsonify({'erro': str(e)}), 400
+    except Exception as e:
+        db_session.rollback()
+        return jsonify({'erro': f"Erro interno: {e}"}), 500
+    finally:
+        db_session.close()
+
+
+@transacao_bp.route('/importacao/mapeamentos', methods=['GET'])
+def listar_mapeamentos_route():
+    id_usuario = "usuario_mock_id"
+    db_session = get_db_session()
+    try:
+        repo = MapeamentoCSVRepositorySqlite(db_session)
+        use_case = ListarMapeamentosCSV(repo)
+        mapeamentos = use_case.execute(id_usuario)
+        payload = [
+            {
+                "id": m.id,
+                "nome": m.nome,
+                "coluna_data": m.coluna_data,
+                "coluna_valor": m.coluna_valor,
+                "coluna_descricao": m.coluna_descricao,
+                "sem_cabecalho": all(
+                    col.startswith("__col_")
+                    for col in [m.coluna_data, m.coluna_valor, m.coluna_descricao]
+                ),
+            }
+            for m in mapeamentos
+        ]
+        return jsonify(payload), 200
+    except Exception as e:
+        return jsonify({'erro': f"Erro interno: {e}"}), 500
     finally:
         db_session.close()
 

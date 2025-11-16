@@ -11,6 +11,10 @@ body {
     color: #333;
 }
 
+.hidden {
+    display: none !important;
+}
+
 header {
     background-color: #fff;
     padding: 20px 40px;
@@ -252,6 +256,16 @@ header {
     background: #f7f7f7;
     border-color: #aaa;
 }
+.btn-importar {
+    background: #111;
+    border-color: #111;
+    color: #fff;
+}
+.btn-importar:hover {
+    background: #000;
+    border-color: #000;
+    color: #fff;
+}
 /* Botão Processar (Verde) */
 .btn-processar {
     background-color: #28a745;
@@ -262,6 +276,12 @@ header {
     background-color: #218838;
     border-color: #1e7e34;
     color: white;
+}
+.checkbox-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
 }
 
 .search-bar-container {

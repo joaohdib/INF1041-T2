@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // (Botões)
     const btnAbrirFiltros = document.getElementById('btn-abrir-filtros');
     const btnAbrirMassa = document.getElementById('btn-abrir-massa');
+    const btnImportarExtrato = document.getElementById('btn-importar-extrato');
     const searchInput = document.getElementById('filtro-descricao-rapido');
 
     // (Modais e Formulários)
@@ -20,10 +21,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalMassa = document.getElementById('modal-massa-backdrop');
     const modalEdit = document.getElementById('modal-edit-backdrop');
     const modalAnexoViewer = document.getElementById('modal-anexo-viewer');
+    const modalImportacao = document.getElementById('modal-importacao-extrato');
     
     const formFiltros = document.getElementById('form-filtros');
     const formAplicarMassa = document.getElementById('form-aplicar-massa');
     const formEditTransacao = document.getElementById('form-edit-transacao');
+    const formImportacao = document.getElementById('form-importacao-extrato');
     
     // (Modal de Massa)
     const selectCategoriaMassa = document.getElementById('massa-categoria');
@@ -46,6 +49,18 @@ document.addEventListener('DOMContentLoaded', () => {
     // (Modal Anexo Viewer)
     const anexoImageViewer = document.getElementById('anexo-image-viewer');
     const btnFecharAnexoViewer = document.getElementById('btn-fechar-anexo-viewer');
+
+    // (Modal Importação)
+    const inputArquivoImport = document.getElementById('import-arquivo');
+    const selectMapeamento = document.getElementById('select-mapeamento');
+    const mappingManualContainer = document.getElementById('mapeamento-manual');
+    const mapDataSelect = document.getElementById('map-data');
+    const mapValorSelect = document.getElementById('map-valor');
+    const mapDescricaoSelect = document.getElementById('map-descricao');
+    const checkboxSalvarMapeamento = document.getElementById('checkbox-salvar-mapeamento');
+    const nomeMapeamentoInput = document.getElementById('input-nome-mapeamento');
+    const btnCancelarImport = document.getElementById('btn-cancelar-import');
+    const checkboxSemCabecalho = document.getElementById('checkbox-sem-cabecalho');
 
 
     // --- Funções Auxiliares ---
@@ -70,6 +85,17 @@ document.addEventListener('DOMContentLoaded', () => {
     function notificarAtualizacaoDashboard() {
         broadcastChannel.postMessage('atualizar_dashboard');
     }
+
+    const MAP_HINTS = {
+        data: ['data', 'date', 'dt', 'transaction date', 'dt lanc'],
+        valor: ['valor', 'value', 'amount', 'vl', 'vl.', 'valor bruto', 'valor liquido'],
+        descricao: ['descricao', 'description', 'memo', 'history', 'info', 'historico']
+    };
+
+    let colunasCSVDetectadas = [];
+    let ultimoArquivoExtensao = null;
+    let arquivoSemCabecalho = false;
+    let mapeamentosSalvosCache = [];
 
     /**
      * Renderiza a tabela da Inbox
@@ -182,6 +208,7 @@ document.addEventListener('DOMContentLoaded', () => {
         modalMassa.classList.add('hidden');
         modalEdit.classList.add('hidden');
         modalAnexoViewer.classList.add('hidden'); 
+        modalImportacao.classList.add('hidden');
     }
 
     // --- Handlers de Eventos ---
@@ -200,6 +227,7 @@ document.addEventListener('DOMContentLoaded', () => {
         fecharModais();
         carregarInbox(); 
     });
+    btnImportarExtrato.addEventListener('click', () => abrirModalImportacao());
     formFiltros.addEventListener('submit', (e) => {
         e.preventDefault();
         const statusRadio = document.querySelector('input[name="filtro_status"]:checked');
@@ -377,6 +405,304 @@ document.addEventListener('DOMContentLoaded', () => {
     modalMassa.addEventListener('click', (e) => { if(e.target === modalMassa) fecharModais() });
     modalEdit.addEventListener('click', (e) => { if(e.target === modalEdit) fecharModais() });
     modalAnexoViewer.addEventListener('click', (e) => { if(e.target === modalAnexoViewer) fecharModais() });
+    btnCancelarImport.addEventListener('click', fecharModais);
+    modalImportacao.addEventListener('click', (e) => { if (e.target === modalImportacao) fecharModais(); });
+    inputArquivoImport.addEventListener('change', handleArquivoImportacao);
+    checkboxSemCabecalho.addEventListener('change', () => {
+        arquivoSemCabecalho = checkboxSemCabecalho.checked;
+        if (inputArquivoImport.files[0]) {
+            lerArquivoParaMapeamento(inputArquivoImport.files[0]);
+        }
+    });
+    selectMapeamento.addEventListener('change', handleSelecaoMapeamentoChange);
+    checkboxSalvarMapeamento.addEventListener('change', handleSalvarMapeamentoToggle);
+    formImportacao.addEventListener('submit', handleImportacaoExtrato);
+
+    // --- Fluxo de Importação ---
+
+    async function abrirModalImportacao() {
+        formImportacao.reset();
+        checkboxSalvarMapeamento.checked = false;
+        checkboxSalvarMapeamento.disabled = false;
+        nomeMapeamentoInput.classList.add('hidden');
+        nomeMapeamentoInput.value = '';
+        checkboxSemCabecalho.checked = false;
+        checkboxSemCabecalho.disabled = false;
+        arquivoSemCabecalho = false;
+        colunasCSVDetectadas = [];
+        ultimoArquivoExtensao = null;
+        mappingManualContainer.classList.add('hidden');
+        await carregarMapeamentosSalvos();
+        modalImportacao.classList.remove('hidden');
+    }
+
+    async function carregarMapeamentosSalvos() {
+        try {
+            const mapeamentos = await api.getMapeamentosImportacao();
+            mapeamentosSalvosCache = mapeamentos;
+            selectMapeamento.innerHTML = '<option value="">Selecionar mapeamento...</option>';
+            mapeamentos.forEach(map => {
+                const option = document.createElement('option');
+                option.value = map.id;
+                option.textContent = map.nome;
+                selectMapeamento.appendChild(option);
+            });
+        } catch (error) {
+            console.error('Falha ao carregar mapeamentos', error);
+            selectMapeamento.innerHTML = '<option value="">Nenhum mapeamento disponível</option>';
+        }
+        atualizarVisibilidadeMapeamento();
+    }
+
+    function handleSelecaoMapeamentoChange() {
+        const mapping = mapeamentosSalvosCache.find((m) => m.id === selectMapeamento.value);
+        if (mapping) {
+            checkboxSalvarMapeamento.checked = false;
+            checkboxSalvarMapeamento.disabled = true;
+            nomeMapeamentoInput.classList.add('hidden');
+            nomeMapeamentoInput.value = '';
+            checkboxSemCabecalho.checked = Boolean(mapping.sem_cabecalho);
+            checkboxSemCabecalho.disabled = true;
+            arquivoSemCabecalho = checkboxSemCabecalho.checked;
+            mappingManualContainer.classList.add('hidden');
+        } else {
+            checkboxSalvarMapeamento.disabled = ultimoArquivoExtensao !== 'csv';
+            checkboxSemCabecalho.disabled = false;
+            checkboxSemCabecalho.checked = arquivoSemCabecalho;
+            arquivoSemCabecalho = checkboxSemCabecalho.checked;
+            if (inputArquivoImport.files[0]) {
+                lerArquivoParaMapeamento(inputArquivoImport.files[0]);
+            }
+            atualizarVisibilidadeMapeamento();
+        }
+    }
+
+    function handleSalvarMapeamentoToggle() {
+        if (checkboxSalvarMapeamento.checked) {
+            nomeMapeamentoInput.classList.remove('hidden');
+        } else {
+            nomeMapeamentoInput.classList.add('hidden');
+            nomeMapeamentoInput.value = '';
+        }
+    }
+
+    function handleArquivoImportacao(event) {
+        const file = event.target.files[0];
+        arquivoSemCabecalho = checkboxSemCabecalho.checked;
+        if (!file) {
+            colunasCSVDetectadas = [];
+            ultimoArquivoExtensao = null;
+            mappingManualContainer.classList.add('hidden');
+            atualizarVisibilidadeMapeamento();
+            return;
+        }
+        ultimoArquivoExtensao = getFileExtension(file);
+        lerArquivoParaMapeamento(file);
+    }
+
+    function lerArquivoParaMapeamento(file) {
+        if (file.name.split('.').pop().toLowerCase() !== 'csv') {
+            colunasCSVDetectadas = [];
+            mappingManualContainer.classList.add('hidden');
+            atualizarVisibilidadeMapeamento();
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const texto = e.target.result || '';
+            prepararColunasDetectadas(texto);
+            atualizarVisibilidadeMapeamento();
+        };
+        reader.readAsText(file);
+    }
+
+    function prepararColunasDetectadas(texto) {
+        const linhas = texto
+            .split(/\r?\n/)
+            .map((linha) => linha.trim())
+            .filter((linha) => linha.length > 0);
+
+        if (linhas.length === 0) {
+            colunasCSVDetectadas = [];
+            mappingManualContainer.classList.add('hidden');
+            return;
+        }
+
+        const delimitador = detectarDelimitador(linhas[0]);
+        const primeiraLinhaCampos = linhas[0].split(delimitador).map((c) => c.replace(/"/g, '').trim());
+        const linhaExemplo = (arquivoSemCabecalho ? linhas[0] : linhas[1]) || '';
+        const exemplos = linhaExemplo
+            .split(delimitador)
+            .map((c) => c.replace(/"/g, '').trim());
+
+        colunasCSVDetectadas = primeiraLinhaCampos.map((valor, index) => {
+            const exemplo = exemplos[index] || '';
+            if (arquivoSemCabecalho) {
+                return {
+                    key: `__col_${index}`,
+                    label: `Coluna ${index + 1}${exemplo ? ` (ex: ${exemplo})` : ''}`,
+                    sample: valor
+                };
+            }
+            const nome = valor || `Coluna ${index + 1}`;
+            const label = exemplo ? `${nome} (ex: ${exemplo})` : nome;
+            return { key: nome, label, sample: exemplo };
+        });
+
+        if (colunasCSVDetectadas.length >= 3 && !selectMapeamento.value) {
+            popularMapeamentoManual();
+        }
+    }
+
+    function detectarDelimitador(linha) {
+        if (linha.includes(';')) return ';';
+        if (linha.includes('\t')) return '\t';
+        return ',';
+    }
+
+    function popularMapeamentoManual() {
+        const selects = [mapDataSelect, mapValorSelect, mapDescricaoSelect];
+        selects.forEach((select) => {
+            select.innerHTML = '<option value="">Selecione...</option>';
+            colunasCSVDetectadas.forEach((coluna) => {
+                const option = document.createElement('option');
+                option.value = coluna.key;
+                option.textContent = coluna.label;
+                select.appendChild(option);
+            });
+        });
+
+        mapDataSelect.value = sugerirColuna('data') || '';
+        mapValorSelect.value = sugerirColuna('valor') || '';
+        mapDescricaoSelect.value = sugerirColuna('descricao') || '';
+    }
+
+    function sugerirColuna(tipo) {
+        const hints = MAP_HINTS[tipo] || [];
+        for (const coluna of colunasCSVDetectadas) {
+            const header = (coluna.label || '').toLowerCase();
+            const sample = (coluna.sample || '').toLowerCase();
+            if (tipo === 'data') {
+                if (pareceData(sample) || header.includes('data')) {
+                    return coluna.key;
+                }
+            } else if (tipo === 'valor') {
+                if (pareceNumero(sample) || header.includes('valor')) {
+                    return coluna.key;
+                }
+            } else if (tipo === 'descricao') {
+                if (header.includes('descricao') || (!pareceData(sample) && !pareceNumero(sample))) {
+                    return coluna.key;
+                }
+            }
+
+            if (hints.some((hint) => header.includes(hint))) {
+                return coluna.key;
+            }
+        }
+        return '';
+    }
+
+    function pareceData(texto) {
+        return /\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}/.test(texto) || /\d{4}-\d{2}-\d{2}/.test(texto);
+    }
+
+    function pareceNumero(texto) {
+        return /^-?\d+([.,]\d+)?$/.test(texto);
+    }
+
+    function atualizarVisibilidadeMapeamento() {
+        const deveMostrar =
+            ultimoArquivoExtensao === 'csv' &&
+            !selectMapeamento.value &&
+            colunasCSVDetectadas.length >= 3;
+
+        if (deveMostrar) {
+            mappingManualContainer.classList.remove('hidden');
+        } else {
+            mappingManualContainer.classList.add('hidden');
+        }
+
+        if (selectMapeamento.value) {
+            checkboxSalvarMapeamento.checked = false;
+            checkboxSalvarMapeamento.disabled = true;
+            nomeMapeamentoInput.classList.add('hidden');
+            nomeMapeamentoInput.value = '';
+        } else {
+            checkboxSalvarMapeamento.disabled = ultimoArquivoExtensao !== 'csv';
+            if (checkboxSalvarMapeamento.disabled) {
+                checkboxSalvarMapeamento.checked = false;
+                nomeMapeamentoInput.classList.add('hidden');
+                nomeMapeamentoInput.value = '';
+            }
+        }
+    }
+
+    function getFileExtension(file) {
+        const partes = file.name.split('.');
+        if (partes.length < 2) return '';
+        return partes.pop().toLowerCase();
+    }
+
+    async function handleImportacaoExtrato(event) {
+        event.preventDefault();
+        const arquivo = inputArquivoImport.files[0];
+        if (!arquivo) {
+            alert('Selecione um arquivo para importar.');
+            return;
+        }
+
+        const ext = getFileExtension(arquivo);
+        const formData = new FormData();
+        formData.append('arquivo', arquivo);
+        formData.append('sem_cabecalho', checkboxSemCabecalho.checked ? 'true' : 'false');
+
+        const mapeamentoSelecionado = selectMapeamento.value;
+        if (mapeamentoSelecionado) {
+            formData.append('id_mapeamento', mapeamentoSelecionado);
+        } else if (ext === 'csv') {
+            const mapping = {
+                data: mapDataSelect.value,
+                valor: mapValorSelect.value,
+                descricao: mapDescricaoSelect.value
+            };
+
+            if (!mapping.data || !mapping.valor || !mapping.descricao) {
+                alert('Mapeie Data, Valor e Descrição para continuar.');
+                return;
+            }
+            const valoresUnicos = new Set(Object.values(mapping));
+            if (valoresUnicos.size < 3) {
+                alert('Cada campo deve usar uma coluna diferente.');
+                return;
+            }
+
+            formData.append('mapeamento_colunas', JSON.stringify(mapping));
+
+            if (checkboxSalvarMapeamento.checked) {
+                const nome = nomeMapeamentoInput.value.trim();
+                if (!nome) {
+                    alert('Informe um nome para salvar o mapeamento.');
+                    return;
+                }
+                formData.append('salvar_mapeamento_nome', nome);
+            }
+        }
+
+        try {
+            const resultado = await api.importarExtrato(formData);
+            alert(`Importação concluída! ${resultado.total_importadas} transações foram enviadas para a Inbox.`);
+            fecharModais();
+            carregarInbox();
+            notificarAtualizacaoDashboard();
+            if (resultado.mapeamento_salvo_id) {
+                await carregarMapeamentosSalvos();
+            }
+        } catch (error) {
+            alert(error.message || 'Erro ao importar extrato.');
+        }
+    }
 
     // --- Inicialização ---
     carregarInbox();

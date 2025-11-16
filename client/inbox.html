@@ -168,11 +168,6 @@
                     <input type="file" id="import-arquivo" name="arquivo" accept=".csv,.ofx" required>
                 </div>
 
-                <div class="form-group checkbox-inline">
-                    <input type="checkbox" id="checkbox-sem-cabecalho">
-                    <label for="checkbox-sem-cabecalho">Arquivo não possui cabeçalho</label>
-                </div>
-
                 <div class="form-group">
                     <label for="select-mapeamento">Mapeamento salvo</label>
                     <select id="select-mapeamento">
@@ -180,14 +175,22 @@
                     </select>
                 </div>
 
-                <div id="mapeamento-manual" class="form-group hidden">
-                    <p>Não reconhecemos esse CSV. Associe as colunas:</p>
-                    <label>Coluna de Data</label>
-                    <select id="map-data"></select>
-                    <label>Coluna de Valor</label>
-                    <select id="map-valor"></select>
-                    <label>Coluna de Descrição</label>
-                    <select id="map-descricao"></select>
+                <div id="mapping-preview" class="mapping-preview hidden">
+                    <div class="mapping-header">
+                        <h3>Mapeamento CSV</h3>
+                        <p>Passo 2 de 2 • Configure as colunas do arquivo CSV</p>
+                    </div>
+                    <div class="mapping-instructions">
+                        <strong>Como mapear</strong>
+                        <p>Selecione o tipo de cada coluna. <span>Data, Valor e Descrição são obrigatórios.</span> Colunas desnecessárias podem ser marcadas como "Ignorar".</p>
+                    </div>
+                    <div class="mapping-table-wrapper">
+                        <table id="mapping-preview-table" class="mapping-table">
+                            <thead></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                    <div id="mapping-alert" class="mapping-alert hidden"></div>
                 </div>
 
                 <div class="form-group">

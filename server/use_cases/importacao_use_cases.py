@@ -281,8 +281,11 @@ class ImportarExtratoBancario:
             valor_float = float(raw)
         else:
             texto = raw.strip().replace("R$", "")
-            texto = texto.replace(".", "").replace(" ", "")
-            texto = texto.replace(",", ".")
+            texto = texto.replace(" ", "")
+            if "," in texto and "." in texto:
+                texto = texto.replace(".", "").replace(",", ".")
+            elif "," in texto:
+                texto = texto.replace(",", ".")
             if not texto:
                 raise ValueError("Valor vazio.")
             valor_float = float(texto)

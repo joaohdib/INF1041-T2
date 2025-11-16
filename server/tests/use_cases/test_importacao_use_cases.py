@@ -230,3 +230,24 @@ def test_salvar_mapeamento_nome_repetido(mock_mapeamento_repo):
             coluna_valor='Valor',
             coluna_descricao='Descricao'
         )
+
+
+def test_importar_csv_valor_negativo_determina_despesa(mock_repo):
+    conteudo = "Data,Valor,Descricao\n01/02/2024,-250.50,Cartão\n".encode()
+    use_case = ImportarExtratoBancario(mock_repo)
+
+    use_case.execute(
+        id_usuario='u1',
+        file_bytes=conteudo,
+        file_name='extrato.csv',
+        column_mapping={
+            'data': 'Data',
+            'valor': 'Valor',
+            'descricao': 'Descricao'
+        }
+    )
+
+    args, _ = mock_repo.add.call_args
+    transacao = args[0]
+    assert transacao.tipo.name == 'DESPESA'
+    assert transacao.valor == 250.50

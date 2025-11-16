@@ -258,7 +258,7 @@ def importar_extrato_route():
 
         mapping_id = request.form.get('id_mapeamento') or None
         salvar_nome = request.form.get('salvar_mapeamento_nome') or None
-        sem_cabecalho = request.form.get('sem_cabecalho', 'false').lower() == 'true'
+        sem_cabecalho = True
 
         conteudo = arquivo.read()
 
@@ -321,10 +321,6 @@ def listar_mapeamentos_route():
                 "coluna_data": m.coluna_data,
                 "coluna_valor": m.coluna_valor,
                 "coluna_descricao": m.coluna_descricao,
-                "sem_cabecalho": all(
-                    col.startswith("__col_")
-                    for col in [m.coluna_data, m.coluna_valor, m.coluna_descricao]
-                ),
             }
             for m in mapeamentos
         ]

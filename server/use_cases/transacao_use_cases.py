@@ -158,9 +158,6 @@ class DeletarTransacao:
         if transacao.id_usuario != id_usuario:
             raise PermissionError("Usuário não autorizado a deletar esta transação.")
             
-        if transacao.status == StatusTransacao.PROCESSADO:
-            raise PermissionError("Não é possível deletar uma transação já processada.")
-            
         self.transacao_repo.delete(id_transacao)
         print(f"Caso de Uso: Transação {id_transacao} deletada.")
         return

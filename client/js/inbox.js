@@ -53,14 +53,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // (Modal Importação)
     const inputArquivoImport = document.getElementById('import-arquivo');
     const selectMapeamento = document.getElementById('select-mapeamento');
-    const mappingManualContainer = document.getElementById('mapeamento-manual');
-    const mapDataSelect = document.getElementById('map-data');
-    const mapValorSelect = document.getElementById('map-valor');
-    const mapDescricaoSelect = document.getElementById('map-descricao');
     const checkboxSalvarMapeamento = document.getElementById('checkbox-salvar-mapeamento');
     const nomeMapeamentoInput = document.getElementById('input-nome-mapeamento');
     const btnCancelarImport = document.getElementById('btn-cancelar-import');
-    const checkboxSemCabecalho = document.getElementById('checkbox-sem-cabecalho');
+    const mappingPreview = document.getElementById('mapping-preview');
+    const mappingTable = document.getElementById('mapping-preview-table');
+    const mappingTableHead = mappingTable.querySelector('thead');
+    const mappingTableBody = mappingTable.querySelector('tbody');
+    const mappingAlert = document.getElementById('mapping-alert');
+    const btnSubmitImportacao = document.querySelector('#form-importacao-extrato button[type="submit"]');
 
 
     // --- Funções Auxiliares ---
@@ -87,15 +88,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const MAP_HINTS = {
-        data: ['data', 'date', 'dt', 'transaction date', 'dt lanc'],
-        valor: ['valor', 'value', 'amount', 'vl', 'vl.', 'valor bruto', 'valor liquido'],
-        descricao: ['descricao', 'description', 'memo', 'history', 'info', 'historico']
+        data: ['data', 'date', 'dt', 'transaction', 'lançamento'],
+        valor: ['valor', 'value', 'amount', 'vl', 'debito', 'credito'],
+        descricao: ['descricao', 'description', 'memo', 'history', 'info', 'detalhe']
     };
+    const REQUIRED_FIELDS = ['data', 'valor', 'descricao'];
 
     let colunasCSVDetectadas = [];
+    let previewLinhas = [];
     let ultimoArquivoExtensao = null;
-    let arquivoSemCabecalho = false;
     let mapeamentosSalvosCache = [];
+    let mappingSelecionadoAtual = null;
 
     /**
      * Renderiza a tabela da Inbox
@@ -126,25 +129,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 const statusClasse = t.status === 'PENDENTE' ? 'status-pendente' : 'status-processado';
 
                 // --- Lógica para Ações (Editar/Deletar) ---
-                let acoesHtml = '';
+                let acoesHtml = `<button class="btn-acao btn-deletar" data-id="${t.id}">Deletar</button>`;
                 if (t.status === 'PENDENTE') {
                     acoesHtml = `
                         <button class="btn-acao btn-editar" data-id="${t.id}">Editar</button>
-                        <button class="btn-acao btn-deletar" data-id="${t.id}">Deletar</button>
-                    `;
+                    ` + acoesHtml;
                 } else {
-                    // Se estiver processada, só mostra o ícone de anexo
                     acoesHtml = `
                         <span class="receipt-icon-placeholder" data-transacao-id="${t.id}"></span>
-                    `;
+                    ` + acoesHtml;
                 }
 
+                const valorNumero = t.valor * (t.tipo === 'DESPESA' ? -1 : 1);
                 tr.innerHTML = `
                     <td><input type="checkbox" class="checkbox-item" data-id="${t.id}"></td>
                     <td>${formatarData(t.data)}</td>
                     <td>${t.descricao || '—'}</td>
-                    <td class="${t.tipo === 'RECEITA' ? 'positivo' : 'negativo'}">
-                        ${formatarMoeda(t.valor)}
+                    <td class="valor-cell ${t.tipo === 'RECEITA' ? 'positivo' : 'negativo'}">
+                        ${formatarMoeda(valorNumero)}
                     </td>
                     <td><span class="${catClasse}">${catTexto}</span></td>
                     <td><span class="${perfilClasse}">${perfilTexto}</span></td>
@@ -408,12 +410,6 @@ document.addEventListener('DOMContentLoaded', () => {
     btnCancelarImport.addEventListener('click', fecharModais);
     modalImportacao.addEventListener('click', (e) => { if (e.target === modalImportacao) fecharModais(); });
     inputArquivoImport.addEventListener('change', handleArquivoImportacao);
-    checkboxSemCabecalho.addEventListener('change', () => {
-        arquivoSemCabecalho = checkboxSemCabecalho.checked;
-        if (inputArquivoImport.files[0]) {
-            lerArquivoParaMapeamento(inputArquivoImport.files[0]);
-        }
-    });
     selectMapeamento.addEventListener('change', handleSelecaoMapeamentoChange);
     checkboxSalvarMapeamento.addEventListener('change', handleSalvarMapeamentoToggle);
     formImportacao.addEventListener('submit', handleImportacaoExtrato);
@@ -423,17 +419,20 @@ document.addEventListener('DOMContentLoaded', () => {
     async function abrirModalImportacao() {
         formImportacao.reset();
         checkboxSalvarMapeamento.checked = false;
-        checkboxSalvarMapeamento.disabled = false;
+        checkboxSalvarMapeamento.disabled = true;
         nomeMapeamentoInput.classList.add('hidden');
         nomeMapeamentoInput.value = '';
-        checkboxSemCabecalho.checked = false;
-        checkboxSemCabecalho.disabled = false;
-        arquivoSemCabecalho = false;
         colunasCSVDetectadas = [];
+        previewLinhas = [];
         ultimoArquivoExtensao = null;
-        mappingManualContainer.classList.add('hidden');
-        await carregarMapeamentosSalvos();
+        mappingSelecionadoAtual = null;
+        mappingPreview.classList.add('hidden');
+        mappingTableHead.innerHTML = '';
+        mappingTableBody.innerHTML = '';
+        mappingAlert.classList.add('hidden');
+        btnSubmitImportacao.disabled = true;
         modalImportacao.classList.remove('hidden');
+        carregarMapeamentosSalvos();
     }
 
     async function carregarMapeamentosSalvos() {
@@ -447,34 +446,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 option.textContent = map.nome;
                 selectMapeamento.appendChild(option);
             });
+            if (mappingSelecionadoAtual) {
+                const stillExists = mapeamentos.find((m) => m.id === mappingSelecionadoAtual.id);
+                selectMapeamento.value = stillExists ? mappingSelecionadoAtual.id : '';
+                if (!stillExists) {
+                    mappingSelecionadoAtual = null;
+                }
+            } else {
+                selectMapeamento.value = '';
+            }
         } catch (error) {
             console.error('Falha ao carregar mapeamentos', error);
             selectMapeamento.innerHTML = '<option value="">Nenhum mapeamento disponível</option>';
         }
-        atualizarVisibilidadeMapeamento();
+        atualizarEstadoSalvarMapeamento();
     }
 
     function handleSelecaoMapeamentoChange() {
-        const mapping = mapeamentosSalvosCache.find((m) => m.id === selectMapeamento.value);
-        if (mapping) {
-            checkboxSalvarMapeamento.checked = false;
-            checkboxSalvarMapeamento.disabled = true;
-            nomeMapeamentoInput.classList.add('hidden');
-            nomeMapeamentoInput.value = '';
-            checkboxSemCabecalho.checked = Boolean(mapping.sem_cabecalho);
-            checkboxSemCabecalho.disabled = true;
-            arquivoSemCabecalho = checkboxSemCabecalho.checked;
-            mappingManualContainer.classList.add('hidden');
-        } else {
-            checkboxSalvarMapeamento.disabled = ultimoArquivoExtensao !== 'csv';
-            checkboxSemCabecalho.disabled = false;
-            checkboxSemCabecalho.checked = arquivoSemCabecalho;
-            arquivoSemCabecalho = checkboxSemCabecalho.checked;
-            if (inputArquivoImport.files[0]) {
-                lerArquivoParaMapeamento(inputArquivoImport.files[0]);
-            }
-            atualizarVisibilidadeMapeamento();
-        }
+        mappingSelecionadoAtual = mapeamentosSalvosCache.find((m) => m.id === selectMapeamento.value) || null;
+        aplicarMapeamentoSalvo(mappingSelecionadoAtual);
+        atualizarEstadoSalvarMapeamento();
     }
 
     function handleSalvarMapeamentoToggle() {
@@ -488,71 +479,76 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function handleArquivoImportacao(event) {
         const file = event.target.files[0];
-        arquivoSemCabecalho = checkboxSemCabecalho.checked;
         if (!file) {
-            colunasCSVDetectadas = [];
-            ultimoArquivoExtensao = null;
-            mappingManualContainer.classList.add('hidden');
-            atualizarVisibilidadeMapeamento();
+            limparPreviewImportacao();
             return;
         }
         ultimoArquivoExtensao = getFileExtension(file);
-        lerArquivoParaMapeamento(file);
-    }
-
-    function lerArquivoParaMapeamento(file) {
-        if (file.name.split('.').pop().toLowerCase() !== 'csv') {
-            colunasCSVDetectadas = [];
-            mappingManualContainer.classList.add('hidden');
-            atualizarVisibilidadeMapeamento();
+        if (ultimoArquivoExtensao === 'ofx') {
+            limparPreviewImportacao();
+            btnSubmitImportacao.disabled = false;
+            return;
+        }
+        if (ultimoArquivoExtensao !== 'csv') {
+            limparPreviewImportacao();
+            alert('Selecione um arquivo CSV válido.');
             return;
         }
 
         const reader = new FileReader();
         reader.onload = (e) => {
             const texto = e.target.result || '';
-            prepararColunasDetectadas(texto);
-            atualizarVisibilidadeMapeamento();
+            prepararPreviewCSV(texto);
         };
         reader.readAsText(file);
     }
 
-    function prepararColunasDetectadas(texto) {
+    function limparPreviewImportacao() {
+        colunasCSVDetectadas = [];
+        previewLinhas = [];
+        mappingPreview.classList.add('hidden');
+        mappingTableHead.innerHTML = '';
+        mappingTableBody.innerHTML = '';
+        mappingAlert.classList.add('hidden');
+        mappingAlert.innerHTML = '';
+        btnSubmitImportacao.disabled = true;
+        checkboxSalvarMapeamento.checked = false;
+        checkboxSalvarMapeamento.disabled = true;
+        nomeMapeamentoInput.classList.add('hidden');
+        nomeMapeamentoInput.value = '';
+        atualizarEstadoSalvarMapeamento();
+    }
+
+    function prepararPreviewCSV(texto) {
         const linhas = texto
             .split(/\r?\n/)
             .map((linha) => linha.trim())
             .filter((linha) => linha.length > 0);
 
         if (linhas.length === 0) {
-            colunasCSVDetectadas = [];
-            mappingManualContainer.classList.add('hidden');
+            limparPreviewImportacao();
+            alert('Arquivo CSV sem dados.');
             return;
         }
 
         const delimitador = detectarDelimitador(linhas[0]);
-        const primeiraLinhaCampos = linhas[0].split(delimitador).map((c) => c.replace(/"/g, '').trim());
-        const linhaExemplo = (arquivoSemCabecalho ? linhas[0] : linhas[1]) || '';
-        const exemplos = linhaExemplo
-            .split(delimitador)
-            .map((c) => c.replace(/"/g, '').trim());
+        const linhasSeparadas = linhas.map((linha) =>
+            linha.split(delimitador).map((c) => c.replace(/"/g, '').trim())
+        );
 
-        colunasCSVDetectadas = primeiraLinhaCampos.map((valor, index) => {
-            const exemplo = exemplos[index] || '';
-            if (arquivoSemCabecalho) {
-                return {
-                    key: `__col_${index}`,
-                    label: `Coluna ${index + 1}${exemplo ? ` (ex: ${exemplo})` : ''}`,
-                    sample: valor
-                };
-            }
-            const nome = valor || `Coluna ${index + 1}`;
-            const label = exemplo ? `${nome} (ex: ${exemplo})` : nome;
-            return { key: nome, label, sample: exemplo };
-        });
+        const totalColunas = Math.max(...linhasSeparadas.map((r) => r.length));
+        colunasCSVDetectadas = Array.from({ length: totalColunas }, (_, index) => ({
+            key: `__col_${index}`,
+            label: `Coluna ${index + 1}`,
+            samples: linhasSeparadas.map((linha) => linha[index] || '').filter(Boolean).slice(0, 6),
+            mappedType: '',
+            selectEl: null,
+        }));
 
-        if (colunasCSVDetectadas.length >= 3 && !selectMapeamento.value) {
-            popularMapeamentoManual();
-        }
+        previewLinhas = linhasSeparadas.slice(0, 6);
+        mappingPreview.classList.remove('hidden');
+        atualizarEstadoSalvarMapeamento();
+        renderMappingTable();
     }
 
     function detectarDelimitador(linha) {
@@ -561,46 +557,77 @@ document.addEventListener('DOMContentLoaded', () => {
         return ',';
     }
 
-    function popularMapeamentoManual() {
-        const selects = [mapDataSelect, mapValorSelect, mapDescricaoSelect];
-        selects.forEach((select) => {
-            select.innerHTML = '<option value="">Selecione...</option>';
-            colunasCSVDetectadas.forEach((coluna) => {
-                const option = document.createElement('option');
-                option.value = coluna.key;
-                option.textContent = coluna.label;
-                select.appendChild(option);
+    function renderMappingTable() {
+        mappingTableHead.innerHTML = '';
+        mappingTableBody.innerHTML = '';
+
+        if (!colunasCSVDetectadas.length) {
+            mappingPreview.classList.add('hidden');
+            return;
+        }
+
+        const headerRow = document.createElement('tr');
+        colunasCSVDetectadas.forEach((coluna) => {
+            const th = document.createElement('th');
+            const select = document.createElement('select');
+            select.innerHTML = `
+                <option value="">Mapear...</option>
+                <option value="data">Data</option>
+                <option value="valor">Valor</option>
+                <option value="descricao">Descrição</option>
+                <option value="ignorar">Ignorar</option>
+            `;
+            select.value = coluna.mappedType || '';
+            select.addEventListener('change', () => {
+                coluna.mappedType = select.value;
+                validateMapping();
             });
+            coluna.selectEl = select;
+            th.appendChild(select);
+            headerRow.appendChild(th);
+        });
+        mappingTableHead.appendChild(headerRow);
+
+        previewLinhas.forEach((linha) => {
+            const tr = document.createElement('tr');
+            colunasCSVDetectadas.forEach((_, index) => {
+                const td = document.createElement('td');
+                const valor = linha[index] || '';
+                td.textContent = valor || '—';
+                tr.appendChild(td);
+            });
+            mappingTableBody.appendChild(tr);
         });
 
-        mapDataSelect.value = sugerirColuna('data') || '';
-        mapValorSelect.value = sugerirColuna('valor') || '';
-        mapDescricaoSelect.value = sugerirColuna('descricao') || '';
+        aplicarMapeamentoSalvo(mappingSelecionadoAtual);
+        atualizarEstadoSalvarMapeamento();
+        validateMapping();
     }
 
-    function sugerirColuna(tipo) {
-        const hints = MAP_HINTS[tipo] || [];
-        for (const coluna of colunasCSVDetectadas) {
-            const header = (coluna.label || '').toLowerCase();
-            const sample = (coluna.sample || '').toLowerCase();
-            if (tipo === 'data') {
-                if (pareceData(sample) || header.includes('data')) {
-                    return coluna.key;
-                }
-            } else if (tipo === 'valor') {
-                if (pareceNumero(sample) || header.includes('valor')) {
-                    return coluna.key;
-                }
-            } else if (tipo === 'descricao') {
-                if (header.includes('descricao') || (!pareceData(sample) && !pareceNumero(sample))) {
-                    return coluna.key;
-                }
-            }
+    function aplicarMapeamentoSalvo(mapping) {
+        if (!colunasCSVDetectadas.length) return;
 
-            if (hints.some((hint) => header.includes(hint))) {
-                return coluna.key;
+        colunasCSVDetectadas.forEach((coluna) => {
+            let novoValor = '';
+            if (mapping) {
+                if (mapping.coluna_data === coluna.key) novoValor = 'data';
+                if (mapping.coluna_valor === coluna.key) novoValor = 'valor';
+                if (mapping.coluna_descricao === coluna.key) novoValor = 'descricao';
+            } else {
+                novoValor = sugerirTipoParaColuna(coluna);
             }
-        }
+            coluna.mappedType = novoValor;
+            if (coluna.selectEl) {
+                coluna.selectEl.value = novoValor || '';
+            }
+        });
+    }
+
+    function sugerirTipoParaColuna(coluna) {
+        const valores = coluna.samples || [];
+        if (valores.some((valor) => pareceData(valor))) return 'data';
+        if (valores.some((valor) => pareceNumero(valor))) return 'valor';
+        if (valores.length) return 'descricao';
         return '';
     }
 
@@ -612,30 +639,87 @@ document.addEventListener('DOMContentLoaded', () => {
         return /^-?\d+([.,]\d+)?$/.test(texto);
     }
 
-    function atualizarVisibilidadeMapeamento() {
-        const deveMostrar =
-            ultimoArquivoExtensao === 'csv' &&
-            !selectMapeamento.value &&
-            colunasCSVDetectadas.length >= 3;
-
-        if (deveMostrar) {
-            mappingManualContainer.classList.remove('hidden');
+    function validateMapping() {
+        if (!colunasCSVDetectadas.length) {
+            btnSubmitImportacao.disabled = true;
+            clearMappingAlert();
+            return;
+        }
+        const { errors } = coletarMapping(false);
+        if (errors.length) {
+            showMappingAlert(errors[0]);
+            btnSubmitImportacao.disabled = true;
         } else {
-            mappingManualContainer.classList.add('hidden');
+            clearMappingAlert();
+            btnSubmitImportacao.disabled = false;
+        }
+    }
+
+    function showMappingAlert(message) {
+        mappingAlert.innerHTML = `
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+            <div>
+                <strong>Mapeamento incompleto</strong>
+                <p>${message}</p>
+            </div>
+        `;
+        mappingAlert.classList.remove('hidden');
+    }
+
+    function clearMappingAlert() {
+        mappingAlert.classList.add('hidden');
+        mappingAlert.innerHTML = '';
+    }
+
+    function coletarMapping(shouldThrow = true) {
+        const mapping = {
+            data: null,
+            valor: null,
+            descricao: null,
+        };
+        const errors = [];
+
+        colunasCSVDetectadas.forEach((coluna) => {
+            const tipo = coluna.mappedType;
+            if (!tipo || tipo === 'ignorar') return;
+            if (!REQUIRED_FIELDS.includes(tipo)) return;
+
+            if (mapping[tipo] && mapping[tipo] !== coluna.key) {
+                errors.push(`Você selecionou mais de uma coluna como ${tipo}.`);
+            } else {
+                mapping[tipo] = coluna.key;
+            }
+        });
+
+        REQUIRED_FIELDS.forEach((campo) => {
+            if (!mapping[campo]) {
+                errors.push(`Mapeie a coluna de ${campo}.`);
+            }
+        });
+
+        if (shouldThrow && errors.length) {
+            throw new Error(errors.join(' '));
         }
 
-        if (selectMapeamento.value) {
+        return { mapping, errors };
+    }
+
+    function atualizarEstadoSalvarMapeamento() {
+        if (!colunasCSVDetectadas.length) {
+            checkboxSalvarMapeamento.checked = false;
+            checkboxSalvarMapeamento.disabled = true;
+            nomeMapeamentoInput.classList.add('hidden');
+            nomeMapeamentoInput.value = '';
+            return;
+        }
+
+        if (mappingSelecionadoAtual) {
             checkboxSalvarMapeamento.checked = false;
             checkboxSalvarMapeamento.disabled = true;
             nomeMapeamentoInput.classList.add('hidden');
             nomeMapeamentoInput.value = '';
         } else {
-            checkboxSalvarMapeamento.disabled = ultimoArquivoExtensao !== 'csv';
-            if (checkboxSalvarMapeamento.disabled) {
-                checkboxSalvarMapeamento.checked = false;
-                nomeMapeamentoInput.classList.add('hidden');
-                nomeMapeamentoInput.value = '';
-            }
+            checkboxSalvarMapeamento.disabled = false;
         }
     }
 
@@ -656,25 +740,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const ext = getFileExtension(arquivo);
         const formData = new FormData();
         formData.append('arquivo', arquivo);
-        formData.append('sem_cabecalho', checkboxSemCabecalho.checked ? 'true' : 'false');
 
         const mapeamentoSelecionado = selectMapeamento.value;
         if (mapeamentoSelecionado) {
             formData.append('id_mapeamento', mapeamentoSelecionado);
         } else if (ext === 'csv') {
-            const mapping = {
-                data: mapDataSelect.value,
-                valor: mapValorSelect.value,
-                descricao: mapDescricaoSelect.value
-            };
-
-            if (!mapping.data || !mapping.valor || !mapping.descricao) {
-                alert('Mapeie Data, Valor e Descrição para continuar.');
-                return;
-            }
-            const valoresUnicos = new Set(Object.values(mapping));
-            if (valoresUnicos.size < 3) {
-                alert('Cada campo deve usar uma coluna diferente.');
+            const { mapping, errors } = coletarMapping(false);
+            if (errors.length) {
+                showMappingAlert(errors[0]);
                 return;
             }
 
@@ -688,6 +761,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 formData.append('salvar_mapeamento_nome', nome);
             }
+        } else {
+            clearMappingAlert();
         }
 
         try {

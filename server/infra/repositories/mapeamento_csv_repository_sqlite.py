@@ -31,6 +31,7 @@ class MapeamentoCSVRepositorySqlite(IMapeamentoCSVRepository):
             coluna_descricao=mapeamento.coluna_descricao,
         )
         self.db.add(model)
+        self.db.flush()
         return mapeamento
 
     def get_by_usuario(self, id_usuario: str) -> list[DomainMapeamento]:
@@ -56,4 +57,3 @@ class MapeamentoCSVRepositorySqlite(IMapeamentoCSVRepository):
             .first()
             is not None
         )
-

@@ -140,13 +140,14 @@ document.addEventListener('DOMContentLoaded', () => {
             return dataB - dataA;
         });
 
-        meta.reservas = reservas;
+        metasState.set(metaId, { ...meta, reservas });
     }
 
     function removerReservaDaMeta(metaId, reservaId) {
         const meta = metasState.get(metaId);
         if (!meta) return;
-        meta.reservas = (meta.reservas || []).filter(item => item.id !== reservaId);
+        const reservasFiltradas = (meta.reservas || []).filter(item => item.id !== reservaId);
+        metasState.set(metaId, { ...meta, reservas: reservasFiltradas });
     }
 
     async function carregarPerfis() {

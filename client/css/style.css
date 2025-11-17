@@ -227,7 +227,7 @@ header {
     font-weight: bold;
     font-size: 0.9rem;
 }
-.form-group input, .form-group select {
+.form-group input, .form-group select, .form-group textarea {
     width: 100%;
     padding: 10px;
     border: 1px solid #ccc;
@@ -469,4 +469,297 @@ tr[data-status="PROCESSADO"] .btn-editar {
     font-weight: normal;
     font-size: 1rem;
     margin: 0;
+}
+
+/* --- Página de Metas --- */
+.meta-page {
+    max-width: 820px;
+    margin: 0 auto 40px;
+    padding: 0 20px 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+.meta-form-card {
+    width: 100%;
+}
+.meta-intro,
+.meta-sugestoes-intro {
+    margin: 10px 0 20px;
+    color: #555;
+}
+.meta-actions {
+    display: flex;
+    justify-content: flex-end;
+}
+.meta-actions .btn-primary {
+    min-width: 150px;
+}
+.meta-alert {
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 18px;
+    font-size: 0.95rem;
+    border: 1px solid transparent;
+}
+.meta-alert-success {
+    background: #e6f4ea;
+    border-color: #28a745;
+    color: #1f6c31;
+}
+.meta-alert-error {
+    background: #fdecea;
+    border-color: #dc3545;
+    color: #a71d2a;
+}
+.meta-alert-warning {
+    background: #fff3cd;
+    border-color: #ffca2c;
+    color: #664d03;
+}
+.meta-sugestoes {
+    width: 100%;
+}
+.meta-resumo {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+}
+.meta-resumo-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #777;
+}
+.meta-resumo strong {
+    font-size: 1.05rem;
+}
+.meta-sugestoes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+}
+.meta-sugestao {
+    border: 1px solid #dbe4f0;
+    background: #f7f9fc;
+    border-radius: 10px;
+    padding: 16px;
+}
+.meta-sugestao-label {
+    font-size: 0.85rem;
+    color: #555;
+    display: block;
+    margin-bottom: 8px;
+}
+.meta-sugestao-valor {
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: #007bff;
+}
+.meta-list-intro {
+    margin: 4px 0 0;
+    color: #666;
+    font-size: 0.9rem;
+}
+.metas-list-card,
+.metas-concluidas-card {
+    width: 100%;
+}
+.metas-list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+.metas-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 18px;
+    margin-top: 20px;
+}
+.meta-empty {
+    text-align: center;
+    background: #f8fafc;
+    border: 1px dashed #cbd5f0;
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.meta-card,
+.meta-card-concluida {
+    background: #ffffff;
+    border: 1px solid #e5eaf5;
+    border-radius: 12px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+.meta-card-concluida {
+    border-color: #c9f4d9;
+    background: #f4fff7;
+}
+.meta-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+}
+.meta-card-header h3 {
+    font-size: 1.15rem;
+    margin: 0;
+    color: #1e293b;
+}
+.meta-deadline {
+    font-size: 0.85rem;
+    color: #65748b;
+    white-space: nowrap;
+}
+.meta-progress-bar {
+    width: 100%;
+    height: 10px;
+    border-radius: 999px;
+    background: #e7ecf6;
+    overflow: hidden;
+}
+.meta-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #2563eb, #3b82f6);
+    border-radius: 999px;
+}
+.meta-progress-values {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    color: #475569;
+    margin-top: 8px;
+}
+.meta-perfil {
+    font-size: 0.85rem;
+    color: #475569;
+}
+.meta-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    background: #e0f2fe;
+    color: #0369a1;
+}
+.meta-tag-success {
+    background: #dcfce7;
+    color: #166534;
+}
+.meta-actions-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.btn-small {
+    padding: 8px 14px;
+    font-size: 0.85rem;
+}
+.btn-danger {
+    background-color: #dc3545;
+    color: #fff;
+    border: none;
+}
+.btn-danger:hover {
+    background-color: #b02a37;
+}
+.meta-reservas-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #1e293b;
+}
+.meta-reservas-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+.meta-reserva-item {
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 12px;
+    background: #f8fafc;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.meta-reserva-empty {
+    align-items: center;
+    justify-content: center;
+    color: #64748b;
+    border-style: dashed;
+    font-size: 0.85rem;
+    background: #fff;
+}
+.meta-reserva-info {
+    display: flex;
+    justify-content: space-between;
+    color: #334155;
+    font-size: 0.9rem;
+}
+.meta-reserva-valor {
+    font-weight: 600;
+}
+.meta-reserva-obs {
+    font-size: 0.85rem;
+    color: #475569;
+}
+.meta-reserva-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.btn-inline {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    cursor: pointer;
+    font-weight: 500;
+}
+.btn-inline:hover {
+    background: #f1f5f9;
+}
+.meta-modal-meta {
+    font-size: 0.9rem;
+    color: #475569;
+    margin: 6px 0 16px;
+}
+
+@media (max-width: 600px) {
+    .meta-page {
+        padding: 0 16px 32px;
+    }
+    .meta-actions {
+        justify-content: stretch;
+    }
+    .meta-actions .btn-primary {
+        width: 100%;
+    }
+    .metas-list-header {
+        align-items: flex-start;
+    }
+    .meta-actions-row {
+        flex-direction: column;
+    }
+    .btn-inline,
+    .btn-small {
+        width: 100%;
+        text-align: center;
+    }
 }

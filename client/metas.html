@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metas Financeiras - Plano</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <header>
+        <a href="index.html" class="header-link">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"></path><polyline points="12 19 5 12 12 5"></polyline></svg>
+            <h1>PLANO</h1>
+        </a>
+    </header>
+
+    <main class="meta-page">
+        <section class="card meta-form-card">
+            <h2>Criar meta financeira</h2>
+            <p class="meta-intro">Defina nome, valor e prazo para receber um plano sugerido de reservas semanais e mensais.</p>
+
+            <div id="meta-feedback" class="hidden" role="alert"></div>
+
+            <form id="form-criar-meta" novalidate>
+                <div class="form-group">
+                    <label for="meta-nome">Nome da meta *</label>
+                    <input type="text" id="meta-nome" placeholder="Ex: Férias na Europa" maxlength="120" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="meta-valor">Valor desejado (R$) *</label>
+                    <input type="number" id="meta-valor" step="0.01" min="0" placeholder="0,00" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="meta-data">Data limite *</label>
+                    <input type="date" id="meta-data" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="meta-perfil">Perfil financeiro (opcional)</label>
+                    <select id="meta-perfil">
+                        <option value="">Selecione um perfil</option>
+                    </select>
+                </div>
+
+                <div class="meta-actions">
+                    <button type="submit" id="btn-criar-meta" class="btn-primary">Criar meta</button>
+                </div>
+            </form>
+        </section>
+
+        <section id="meta-sugestoes-card" class="card meta-sugestoes hidden">
+            <h2>Plano sugerido</h2>
+            <p class="meta-sugestoes-intro">Siga as reservas abaixo para alcançar o objetivo dentro do prazo.</p>
+            <div class="meta-resumo">
+                <div>
+                    <span class="meta-resumo-label">Meta</span>
+                    <strong id="resumo-nome">-</strong>
+                </div>
+                <div>
+                    <span class="meta-resumo-label">Objetivo total</span>
+                    <strong id="resumo-valor">-</strong>
+                </div>
+                <div>
+                    <span class="meta-resumo-label">Data limite</span>
+                    <strong id="resumo-data">-</strong>
+                </div>
+                <div>
+                    <span class="meta-resumo-label">Perfil vinculado</span>
+                    <strong id="resumo-perfil">-</strong>
+                </div>
+            </div>
+            <div class="meta-sugestoes-grid">
+                <div class="meta-sugestao">
+                    <span class="meta-sugestao-label">Reserva semanal</span>
+                    <span id="reserva-semanal" class="meta-sugestao-valor">-</span>
+                </div>
+                <div class="meta-sugestao">
+                    <span class="meta-sugestao-label">Reserva mensal</span>
+                    <span id="reserva-mensal" class="meta-sugestao-valor">-</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="card metas-list-card">
+            <div class="metas-list-header">
+                <div>
+                    <h2>Progresso das metas</h2>
+                    <p class="meta-list-intro">Acompanhe reservas registradas e atualize o progresso em tempo real.</p>
+                </div>
+                <button type="button" id="btn-recarregar-metas" class="btn-secondary">Recarregar</button>
+            </div>
+            <div id="metas-empty" class="meta-empty hidden" role="status">
+                <strong>Nenhuma meta disponível.</strong>
+                <p>Cadastre uma nova meta para começar a planejar suas reservas.</p>
+                <button type="button" id="btn-ir-criar-meta" class="btn-primary btn-small">Criar meta agora</button>
+            </div>
+            <div id="metas-list" class="metas-grid"></div>
+        </section>
+
+        <section id="metas-concluidas-card" class="card metas-concluidas-card hidden">
+            <div class="metas-list-header">
+                <div>
+                    <h2>Metas concluídas</h2>
+                    <p class="meta-list-intro">Continue registrando reservas para manter a disciplina financeira.</p>
+                </div>
+            </div>
+            <div id="metas-concluidas" class="metas-grid"></div>
+        </section>
+    </main>
+
+    <div id="modal-reserva" class="modal-backdrop hidden">
+        <div class="modal" style="max-width: 420px;">
+            <form id="form-reserva" novalidate>
+                <h2 id="modal-reserva-titulo">Registrar reserva</h2>
+                <p id="modal-reserva-meta" class="meta-modal-meta"></p>
+
+                <input type="hidden" id="reserva-meta-id">
+                <input type="hidden" id="reserva-id">
+
+                <div class="form-group">
+                    <label for="reserva-valor">Valor da reserva (R$) *</label>
+                    <input type="number" id="reserva-valor" step="0.01" min="0" placeholder="0,00" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="reserva-observacao">Observação (opcional)</label>
+                    <textarea id="reserva-observacao" rows="3" placeholder="Ex: Reserva proveniente de comissão"></textarea>
+                </div>
+
+                <div class="modal-botoes">
+                    <button type="button" id="btn-cancelar-reserva" class="btn-secondary">Cancelar</button>
+                    <button type="submit" id="btn-salvar-reserva" class="btn-primary">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="modal-confirm-reserva" class="modal-backdrop hidden">
+        <div class="modal" style="max-width: 380px;">
+            <div>
+                <h2>Remover reserva</h2>
+                <p id="confirm-reserva-text">Tem certeza que deseja remover esta reserva?</p>
+                <div class="modal-botoes">
+                    <button type="button" id="btn-cancelar-reserva-exclusao" class="btn-secondary">Cancelar</button>
+                    <button type="button" id="btn-confirmar-reserva-exclusao" class="btn-danger">Remover</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/metas.js"></script>
+</body>
+</html>

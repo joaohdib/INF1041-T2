@@ -38,12 +38,15 @@ class ReservaRepositorySqlite(IReservaRepository):
 
     def add(self, reserva: Reserva) -> None:
         self.db.add(self._map_reserva_to_model(reserva))
+        self.db.flush()
 
     def update(self, reserva: Reserva) -> None:
         self.db.merge(self._map_reserva_to_model(reserva))
+        self.db.flush()
 
     def delete(self, reserva_id: str) -> None:
         self.db.execute(delete(ReservaModel).where(ReservaModel.id == reserva_id))
+        self.db.flush()
 
     def get_by_id(self, reserva_id: str) -> Reserva | None:
         row = self.db.query(ReservaModel).filter(ReservaModel.id == reserva_id).first()

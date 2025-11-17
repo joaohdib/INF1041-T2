@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const despesasEl = document.getElementById('despesas-mes');
     
     const btnVerInbox = document.getElementById('btn-ver-inbox');
+    const btnCriarMeta = document.getElementById('btn-criar-meta');
     const btnAddTransacao = document.getElementById('btn-add-transacao');
     
     // Elementos do Modal
@@ -162,6 +163,12 @@ document.addEventListener('DOMContentLoaded', () => {
     btnVerInbox.addEventListener('click', () => {
         window.location.href = 'inbox.html'; 
     });
+
+    if (btnCriarMeta) {
+        btnCriarMeta.addEventListener('click', () => {
+            window.location.href = 'metas.html';
+        });
+    }
 
     // Modal
     btnAddTransacao.addEventListener('click', abrirModal);

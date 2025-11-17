@@ -112,6 +112,80 @@ export const api = {
     },
 
     /**
+     * Cria uma nova meta financeira.
+     */
+    criarMeta: async (payload) => {
+        const response = await fetch(`${API_URL}/metas/meta/criar_meta`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data?.erro || 'Falha ao criar meta');
+        }
+        return data;
+    },
+
+    /**
+     * Lista metas disponíveis para vinculação de reservas.
+     */
+    getMetasDisponiveis: async () => {
+        const response = await fetch(`${API_URL}/reservas/metas-disponiveis`);
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data?.erro || 'Falha ao carregar metas');
+        }
+        return data;
+    },
+
+    /**
+     * Cria uma nova reserva associada a uma meta.
+     */
+    criarReserva: async (payload) => {
+        const response = await fetch(`${API_URL}/reservas/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data?.erro || 'Falha ao registrar reserva');
+        }
+        return data;
+    },
+
+    /**
+     * Atualiza uma reserva existente.
+     */
+    atualizarReserva: async (id, payload) => {
+        const response = await fetch(`${API_URL}/reservas/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data?.erro || 'Falha ao atualizar reserva');
+        }
+        return data;
+    },
+
+    /**
+     * Remove uma reserva existente e recalcula o progresso da meta.
+     */
+    excluirReserva: async (id) => {
+        const response = await fetch(`${API_URL}/reservas/${id}`, {
+            method: 'DELETE',
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data?.erro || 'Falha ao remover reserva');
+        }
+        return data;
+    },
+
+    /**
      * Busca mapeamentos salvos para importação.
      */
     getMapeamentosImportacao: async () => {

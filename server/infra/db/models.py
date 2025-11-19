@@ -63,6 +63,7 @@ class Anexo(Base):
     caminho_storage = Column(String, nullable=False)
     tipo_mime = Column(String, nullable=False)
     tamanho_bytes = Column(Integer, nullable=False)
+    data_upload = Column(DateTime, nullable=False, server_default=func.now())
     
     transacao = relationship("Transacao")
 

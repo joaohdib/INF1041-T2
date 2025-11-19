@@ -1,5 +1,6 @@
 import os
 import uuid
+import shutil
 from werkzeug.utils import secure_filename
 from infra.storage.storage_interface import IAnexoStorage
 
@@ -25,7 +26,7 @@ class AnexoStorageLocal(IAnexoStorage):
         """
         Salva o arquivo fisicamente no disco e retorna o caminho relativo.
         
-        :param file_stream: Objeto FileStorage do Flask (request.files['anexo'])
+        :param file_stream: Stream do arquivo (FileStorage ou BytesIO)
         :param file_name: Nome original do arquivo (ex: "recibo.jpg")
         :param mime_type: Tipo MIME (ex: "image/jpeg")
         :return: Caminho relativo salvo (ex: "uploads/uuid-aleatorio.jpg")
@@ -42,13 +43,20 @@ class AnexoStorageLocal(IAnexoStorage):
         save_path = os.path.join(UPLOADS_FOLDER, secure_name)
         
         try:
-            # 4. Salvar o stream do arquivo no caminho
-            file_stream.save(save_path)
+            # 4. Salvar o stream do arquivo no caminho (Compatível com BytesIO e FileStorage)
+            with open(save_path, 'wb') as f:
+                if hasattr(file_stream, 'save'):
+                    file_stream.seek(0)
+                    shutil.copyfileobj(file_stream, f)
+                else:
+                    file_stream.seek(0)
+                    f.write(file_stream.read())
             
             # 5. Retornar o caminho *relativo* para ser salvo no banco
             return save_path
         
         except Exception as e:
             print(f"Erro ao salvar arquivo no storage local: {e}")
-            # Lança um erro genérico de I/O
+            if os.path.exists(save_path):
+                os.remove(save_path)
             raise IOError(f"Não foi possível salvar o arquivo: {file_name}")

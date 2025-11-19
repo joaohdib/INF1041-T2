@@ -57,7 +57,7 @@ class AnexarReciboTransacao:
     # Limites (5MB) - Cenário de Falha
     MAX_SIZE_BYTES = 5 * 1024 * 1024
     # Cenário de Falha
-    ALLOWED_MIMES = ["image/jpeg", "image/png", "application/pdf"]
+    ALLOWED_MIMES = ["image/jpeg", "image/png", "application/pdf", "image/jpg"]
 
     def __init__(self, storage: IAnexoStorage, 
                  anexo_repo: IAnexoRepository, 
@@ -71,14 +71,14 @@ class AnexarReciboTransacao:
                 content_type: str, content_length: int) -> Anexo:
         
         # 1. Validações do arquivo (Cenários de Falha)
-        if content_type not in self.ALLOWED_MIMES:
-            raise ValueError(f"Formato de arquivo não suportado: {content_type}. (Permitidos: JPG, PNG, PDF)")
-        
+        if content_length is None:
+             raise ValueError("Não foi possível determinar o tamanho do arquivo.")
+
         if content_length > self.MAX_SIZE_BYTES:
             raise ValueError("Arquivo excede o tamanho máximo de 5MB.")
         
-        if not file_name:
-            raise ValueError("Nome de arquivo inválido.")
+        if content_type not in self.ALLOWED_MIMES:
+            raise ValueError(f"Formato de arquivo não suportado: {content_type}. (Permitidos: JPG, PNG, PDF)")
 
         # 2. Validação da Transação (Segurança e Integridade)
         transacao = self.transacao_repo.get_by_id(id_transacao)

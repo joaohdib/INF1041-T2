@@ -1,4 +1,5 @@
 import json
+import os
 from flask import Blueprint, request, jsonify
 from datetime import date, datetime
 from use_cases.transacao_use_cases import (
@@ -25,6 +26,7 @@ from infra.storage.anexo_storage_local import AnexoStorageLocal
 from infra.db.database import get_db_session 
 from domain.transacao import Transacao, StatusTransacao
 from domain.anexo import Anexo
+import io
 
 transacao_bp = Blueprint('transacao_bp', __name__)
 
@@ -77,12 +79,19 @@ def lancar_transacao_route():
         transacao_repo = TransacaoRepositorySqlite(db_session)
         use_case_lancar = LancarTransacao(transacao_repo)
         transacao_criada = use_case_lancar.execute(**payload)
+
+        db_session.flush()
         
         # 4. Verifica se um anexo foi enviado (request.files)
         if 'anexo' in request.files:
             file = request.files['anexo']
             if file and file.filename != '':
-                # Se sim, injeta dependências e chama o caso de uso de anexo
+
+                file_content = file.read()
+                file_length = len(file_content)
+                
+                file_stream = io.BytesIO(file_content)
+
                 anexo_repo = AnexoRepositorySqlite(db_session)
                 storage = AnexoStorageLocal()
                 use_case_anexar = AnexarReciboTransacao(storage, anexo_repo, transacao_repo)
@@ -90,10 +99,10 @@ def lancar_transacao_route():
                 use_case_anexar.execute(
                     id_usuario=id_usuario,
                     id_transacao=transacao_criada.id,
-                    file_stream=file,
+                    file_stream=file_stream, # Passa o stream recriado
                     file_name=file.filename,
                     content_type=file.mimetype,
-                    content_length=file.content_length
+                    content_length=file_length # Passa o tamanho exato
                 )
         
         # 5. Commit de tudo
@@ -101,9 +110,13 @@ def lancar_transacao_route():
         return jsonify(serialize_transacao(transacao_criada)), 201
     
     except ValueError as e:
-        db_session.rollback(); return jsonify({"erro": str(e)}), 400
+        db_session.rollback()
+        return jsonify({"erro": str(e)}), 400
     except Exception as e:
-        db_session.rollback(); return jsonify({"erro": f"Erro interno: {e}"}), 500
+        db_session.rollback()
+        import traceback
+        traceback.print_exc() # Imprime o erro real no console
+        return jsonify({"erro": f"Erro interno: {e}"}), 500
     finally:
         db_session.close()
 
@@ -113,32 +126,31 @@ def anexar_recibo_route(id_transacao: str):
     db_session = get_db_session()
     
     try:
-        # 1. Validação do arquivo na requisição (form-data)
         if 'anexo' not in request.files:
-            return jsonify({"erro": "Nenhum arquivo 'anexo' enviado no form-data."}), 400
+            return jsonify({"erro": "Nenhum arquivo enviado."}), 400
         
         file = request.files['anexo']
-        
         if not file or file.filename == '':
-            return jsonify({"erro": "Nome de arquivo inválido ou não selecionado."}), 400
+            return jsonify({"erro": "Nome de arquivo inválido."}), 400
 
-        # 2. Injeção de Dependência (DI)
+        file_content = file.read()
+        file_length = len(file_content)
+        file_stream = io.BytesIO(file_content)
+
         anexo_repo = AnexoRepositorySqlite(db_session)
         transacao_repo = TransacaoRepositorySqlite(db_session)
         storage = AnexoStorageLocal()
         
-        # 3. Chama o Caso de Uso
         use_case = AnexarReciboTransacao(storage, anexo_repo, transacao_repo)
         anexo_criado = use_case.execute(
             id_usuario=id_usuario,
             id_transacao=id_transacao,
-            file_stream=file,             # Passa o objeto FileStorage
-            file_name=file.filename,     # Nome original
-            content_type=file.mimetype,  # Tipo MIME
-            content_length=file.content_length # Tamanho
+            file_stream=file_stream,             
+            file_name=file.filename,     
+            content_type=file.mimetype,  
+            content_length=file_length
         )
         
-        # 4. Commit da transação
         db_session.commit()
         
         return jsonify({
@@ -148,14 +160,16 @@ def anexar_recibo_route(id_transacao: str):
             "caminho": anexo_criado.caminho_storage
         }), 201
 
-    except ValueError as e: # Erro de validação (tamanho, tipo, etc)
+    except ValueError as e:
         db_session.rollback()
         return jsonify({"erro": str(e)}), 400
-    except PermissionError as e: # Erro de segurança
+    except PermissionError as e:
         db_session.rollback()
-        return jsonify({"erro": str(e)}), 403 # Forbidden
-    except Exception as e: # Erro interno (ex: falha ao salvar no disco)
+        return jsonify({"erro": str(e)}), 403
+    except Exception as e:
         db_session.rollback()
+        import traceback
+        traceback.print_exc()
         return jsonify({"erro": f"Erro interno: {e}"}), 500
     finally:
         db_session.close()

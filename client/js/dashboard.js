@@ -54,10 +54,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function carregarDropdownsModal() {
+    async function carregarDropdownsModal(tipo = 'DESPESA') {
         try {
+            // Limpa opções atuais para dar feedback visual
+            categoriaSelect.innerHTML = '<option value="">Carregando...</option>';
+            
             const [categorias, perfis] = await Promise.all([
-                api.getCategorias(),
+                api.getCategorias(tipo), // Passa o tipo aqui
                 api.getPerfis()
             ]);
             
@@ -70,7 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 categoriaSelect.appendChild(option);
             });
 
-            // Popula Perfis
+            // Popula Perfis (mantém lógica original para não duplicar se já estiver carregado, mas aqui simplificado)
             perfilSelect.innerHTML = '<option value="">Selecione um perfil (opcional)</option>';
             perfis.forEach(p => {
                 const option = document.createElement('option');
@@ -81,6 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } catch (error) {
             console.error('Falha ao carregar dropdowns', error);
+            categoriaSelect.innerHTML = '<option value="">Erro ao carregar</option>';
         }
     }
 
@@ -92,12 +96,12 @@ document.addEventListener('DOMContentLoaded', () => {
         btnTipoDespesa.classList.add('active');
         btnTipoReceita.classList.remove('active');
         
-        // --- Reseta o accordion ---
         detalhesContent.classList.add('hidden');
         detalhesToggle.classList.remove('open');
         
         modalBackdrop.classList.remove('hidden');
-        carregarDropdownsModal(); 
+        
+        carregarDropdownsModal('DESPESA'); 
     }
 
     function fecharModal() {
@@ -188,11 +192,13 @@ document.addEventListener('DOMContentLoaded', () => {
         tipoTransacaoAtual = 'DESPESA';
         btnTipoDespesa.classList.add('active');
         btnTipoReceita.classList.remove('active');
+        carregarDropdownsModal('DESPESA');
     });
     btnTipoReceita.addEventListener('click', () => {
         tipoTransacaoAtual = 'RECEITA';
         btnTipoReceita.classList.add('active');
         btnTipoDespesa.classList.remove('active');
+        carregarDropdownsModal('RECEITA');
     });
 
     formAddTransacao.addEventListener('submit', handleLancarTransacao);

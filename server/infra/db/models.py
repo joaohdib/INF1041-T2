@@ -20,6 +20,7 @@ class Categoria(Base):
     id = Column(String, primary_key=True)
     id_usuario = Column(String, nullable=False)
     nome = Column(String, nullable=False)
+    tipo = Column(Enum(TipoTransacao), nullable=False)
 
 class Transacao(Base):
     __tablename__ = "transacao"

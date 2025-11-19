@@ -14,6 +14,7 @@ try:
     from infra.db.database import init_db, Session
     
     from infra.db.models import Perfil, Categoria
+    from domain.transacao import TipoTransacao
 
 except ImportError as e:
     print("Erro de importação. Verifique a estrutura de pastas e os __init__.py")
@@ -43,23 +44,23 @@ def seed_initial_data():
 
         # --- 2. Categorias (Expandido) ---
         categorias_seed = {
-            "cat_alimentacao": Categoria(id="cat_alimentacao", id_usuario=user_id, nome="Alimentação"),
-            "cat_transporte": Categoria(id="cat_transporte", id_usuario=user_id, nome="Transporte"),
-            "cat_saude": Categoria(id="cat_saude", id_usuario=user_id, nome="Saúde"),
-            "cat_moradia": Categoria(id="cat_moradia", id_usuario=user_id, nome="Moradia (Aluguel/Contas)"),
-            "cat_lazer": Categoria(id="cat_lazer", id_usuario=user_id, nome="Lazer (Cinema, Bares)"),
-            "cat_educacao": Categoria(id="cat_educacao", id_usuario=user_id, nome="Educação (Cursos, Livros)"),
-            "cat_vestuario": Categoria(id="cat_vestuario", id_usuario=user_id, nome="Vestuário"),
-            "cat_servicos_app": Categoria(id="cat_servicos_app", id_usuario=user_id, nome="Serviços (Streaming, Apps)"),
-            "cat_impostos": Categoria(id="cat_impostos", id_usuario=user_id, nome="Impostos e Taxas"),
-            "cat_invest": Categoria(id="cat_invest", id_usuario=user_id, nome="Investimentos (Aportes)"),
-            "cat_viagem": Categoria(id="cat_viagem", id_usuario=user_id, nome="Viagem"),
-            "cat_outros_d": Categoria(id="cat_outros_d", id_usuario=user_id, nome="Outras Despesas"),
+            "cat_alimentacao": Categoria(id="cat_alimentacao", id_usuario=user_id, nome="Alimentação", tipo=TipoTransacao.DESPESA),
+            "cat_transporte": Categoria(id="cat_transporte", id_usuario=user_id, nome="Transporte", tipo=TipoTransacao.DESPESA),
+            "cat_saude": Categoria(id="cat_saude", id_usuario=user_id, nome="Saúde", tipo=TipoTransacao.DESPESA),
+            "cat_moradia": Categoria(id="cat_moradia", id_usuario=user_id, nome="Moradia (Aluguel/Contas)", tipo=TipoTransacao.DESPESA),
+            "cat_lazer": Categoria(id="cat_lazer", id_usuario=user_id, nome="Lazer (Cinema, Bares)", tipo=TipoTransacao.DESPESA),
+            "cat_educacao": Categoria(id="cat_educacao", id_usuario=user_id, nome="Educação (Cursos, Livros)", tipo=TipoTransacao.DESPESA),
+            "cat_vestuario": Categoria(id="cat_vestuario", id_usuario=user_id, nome="Vestuário", tipo=TipoTransacao.DESPESA),
+            "cat_servicos_app": Categoria(id="cat_servicos_app", id_usuario=user_id, nome="Serviços (Streaming, Apps)", tipo=TipoTransacao.DESPESA),
+            "cat_impostos": Categoria(id="cat_impostos", id_usuario=user_id, nome="Impostos e Taxas", tipo=TipoTransacao.DESPESA),
+            "cat_invest": Categoria(id="cat_invest", id_usuario=user_id, nome="Investimentos (Aportes)", tipo=TipoTransacao.DESPESA),
+            "cat_viagem": Categoria(id="cat_viagem", id_usuario=user_id, nome="Viagem", tipo=TipoTransacao.DESPESA),
+            "cat_outros_d": Categoria(id="cat_outros_d", id_usuario=user_id, nome="Outras Despesas", tipo=TipoTransacao.DESPESA),
             
             # Receitas (3)
-            "cat_salario": Categoria(id="cat_salario", id_usuario=user_id, nome="Salário"),
-            "cat_renda_sup": Categoria(id="cat_renda_sup", id_usuario=user_id, nome="Renda Suplementar (Freela)"),
-            "cat_outros_r": Categoria(id="cat_outros_r", id_usuario=user_id, nome="Outras Receitas")
+            "cat_salario": Categoria(id="cat_salario", id_usuario=user_id, nome="Salário", tipo=TipoTransacao.RECEITA),
+            "cat_renda_sup": Categoria(id="cat_renda_sup", id_usuario=user_id, nome="Renda Suplementar (Freela)", tipo=TipoTransacao.RECEITA),
+            "cat_outros_r": Categoria(id="cat_outros_r", id_usuario=user_id, nome="Outras Receitas", tipo=TipoTransacao.RECEITA)
         }
 
         for c_id, c_obj in categorias_seed.items():

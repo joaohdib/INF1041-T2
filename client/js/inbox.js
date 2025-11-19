@@ -289,14 +289,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- Handlers de Ações da Tabela (Editar/Deletar/Ver Anexo) ---
-    tableBody.addEventListener('click', (e) => {
+    tableBody.addEventListener('click', async (e) => {
         const target = e.target.closest('button, span.receipt-icon');
         if (!target) return;
         
         const id = target.dataset.id || target.closest('tr').dataset.id;
         
         if (target.classList.contains('btn-editar')) {
-            handleAbrirModalEdicao(id);
+            await handleAbrirModalEdicao(id); 
         }
         if (target.classList.contains('btn-deletar')) {
             handleDeletar(id);
@@ -307,10 +307,20 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Abre o modal de edição
-    function handleAbrirModalEdicao(id) {
+    async function handleAbrirModalEdicao(id) {
         const transacao = transacoesCache.find(t => t.id === id);
         if (!transacao) return;
         
+        // 1. Carrega as categorias corretas para o tipo desta transação
+        try {
+            // transacao.tipo é 'DESPESA' ou 'RECEITA'
+            const categoriasValidas = await api.getCategorias(transacao.tipo);
+            popularSelect(editCategoria, categoriasValidas, 'Selecione uma categoria');
+        } catch (error) {
+            console.error("Erro ao atualizar categorias na edição", error);
+        }
+
+        // 2. Preenche o formulário
         formEditTransacao.reset();
         editId.value = transacao.id;
         editDescricao.value = transacao.descricao || '';

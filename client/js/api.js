@@ -96,8 +96,12 @@ export const api = {
     /**
      * Busca a lista de categorias.
      */
-    getCategorias: async () => {
-        const response = await fetch(`${API_URL}/data/categorias`);
+    getCategorias: async (tipo) => {
+        let url = `${API_URL}/data/categorias`;
+        if (tipo) {
+            url += `?tipo=${tipo}`;
+        }
+        const response = await fetch(url);
         if (!response.ok) throw new Error('Falha ao buscar categorias');
         return response.json();
     },

@@ -8,7 +8,7 @@ meta_bp = Blueprint("meta_bp", __name__)
 
 @meta_bp.route("/meta/criar_meta", methods=["POST"])
 def criar_meta_route():
-    id_usuario = "usuario_mock_id"  # Em produção: viria do token
+    id_usuario = "usuario_mock_id"
     data = request.json or {}
 
     db_session = get_db_session()

@@ -51,7 +51,7 @@ def serialize_anexo(a: Anexo) -> dict:
         "id": a.id,
         "id_transacao": a.id_transacao,
         "nome_arquivo": a.nome_arquivo,
-        "caminho_storage": a.caminho_storage,  # O frontend usará isso para o link
+        "caminho_storage": a.caminho_storage,
         "tipo_mime": a.tipo_mime,
         "data_upload": a.data_upload.isoformat(),
     }
@@ -104,10 +104,10 @@ def lancar_transacao_route():
                 use_case_anexar.execute(
                     id_usuario=id_usuario,
                     id_transacao=transacao_criada.id,
-                    file_stream=file_stream,  # Passa o stream recriado
+                    file_stream=file_stream,
                     file_name=file.filename,
                     content_type=file.mimetype,
-                    content_length=file_length,  # Passa o tamanho exato
+                    content_length=file_length,
                 )
 
         # 5. Commit de tudo
@@ -121,7 +121,7 @@ def lancar_transacao_route():
         db_session.rollback()
         import traceback
 
-        traceback.print_exc()  # Imprime o erro real no console
+        traceback.print_exc()
         return jsonify({"erro": f"Erro interno: {e}"}), 500
     finally:
         db_session.close()
@@ -187,7 +187,7 @@ def anexar_recibo_route(id_transacao: str):
 
 @transacao_bp.route("/<id_transacao>/anexos", methods=["GET"])
 def get_anexos_route(id_transacao: str):
-    id_usuario = "usuario_mock_id"  # (Validação de usuário ocorreria no caso de uso)
+    id_usuario = "usuario_mock_id"
     db_session = get_db_session()
     try:
         anexo_repo = AnexoRepositorySqlite(db_session)
@@ -251,7 +251,7 @@ def deletar_transacao_route(id_transacao: str):
 
     except ValueError as e:
         db_session.rollback()
-        return jsonify({"erro": str(e)}), 404  # Not Found
+        return jsonify({"erro": str(e)}), 404
     except PermissionError as e:
         db_session.rollback()
         return jsonify({"erro": str(e)}), 403
@@ -456,7 +456,7 @@ def categorizar_em_lote_route():
             id_perfil=id_perfil,
         )
 
-        db_session.commit()  # Salva as mudanças do lote
+        db_session.commit()
 
         return jsonify(
             {"mensagem": f"{count} transações atualizadas com sucesso."}

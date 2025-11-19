@@ -10,22 +10,20 @@ data_bp = Blueprint("data_bp", __name__)
 def get_categorias_route():
     """Retorna a lista de categorias cadastradas."""
     id_usuario = "usuario_mock_id"
-    tipo_filtro = request.args.get("tipo")  # Lê o parametro da URL (ex: ?tipo=DESPESA)
+    tipo_filtro = request.args.get("tipo")
 
     db_session = get_db_session()
     try:
         query = db_session.query(Categoria).filter_by(id_usuario=id_usuario)
 
         if tipo_filtro:
-            # Filtra se o parametro foi passado
             try:
                 query = query.filter_by(tipo=TipoTransacao(tipo_filtro))
             except ValueError:
-                pass  # Ignora se o tipo for inválido
+                pass
 
         categorias = query.all()
 
-        # Converte para JSON
         categorias_json = [
             {"id": c.id, "nome": c.nome, "tipo": c.tipo.value} for c in categorias
         ]

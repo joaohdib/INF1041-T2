@@ -115,6 +115,16 @@ class IAnexoRepository(ABC):
         """ Adiciona os metadados de um novo anexo ao banco. """
         pass
 
+    @abstractmethod
+    def get_by_transacao_id(self, id_transacao: str) -> List[Anexo]:
+        """ Busca anexos por ID de transação. """
+        pass
+
+    @abstractmethod
+    def delete_by_transacao_id(self, id_transacao: str) -> None:
+        """ Remove todos os anexos associados a uma transação. """
+        pass
+
 
 class IMapeamentoCSVRepository(ABC):
     @abstractmethod

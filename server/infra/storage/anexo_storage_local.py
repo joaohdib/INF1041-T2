@@ -60,3 +60,14 @@ class AnexoStorageLocal(IAnexoStorage):
             if os.path.exists(save_path):
                 os.remove(save_path)
             raise IOError(f"Não foi possível salvar o arquivo: {file_name}")
+        
+    def delete(self, caminho_storage: str) -> None:
+        """ Remove o arquivo físico se ele existir. """
+        try:
+            if os.path.exists(caminho_storage):
+                os.remove(caminho_storage)
+                print(f"Arquivo removido do storage: {caminho_storage}")
+            else:
+                print(f"Arquivo não encontrado para remoção: {caminho_storage}")
+        except Exception as e:
+            print(f"Erro ao deletar arquivo do storage: {e}")

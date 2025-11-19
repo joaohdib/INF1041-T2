@@ -52,7 +52,6 @@ class LancarTransacao:
 class AnexarReciboTransacao:
     """
     Caso de Uso: Anexar foto do recibo.
-    Implementação finalizada.
     """
     # Limites (5MB) - Cenário de Falha
     MAX_SIZE_BYTES = 5 * 1024 * 1024
@@ -89,7 +88,16 @@ class AnexarReciboTransacao:
         # Regra de Segurança: Usuário só pode anexar em suas transações
         if transacao.id_usuario != id_usuario:
             raise PermissionError("Usuário não autorizado a acessar esta transação.")
-            
+        
+        anexos_existentes = self.anexo_repo.get_by_transacao_id(id_transacao)
+        for anexo_antigo in anexos_existentes:
+            # Deleta arquivo físico
+            self.storage.delete(anexo_antigo.caminho_storage)
+        
+        # Deleta registros no banco (garante limpar histórico antigo)
+        if anexos_existentes:
+            self.anexo_repo.delete_by_transacao_id(id_transacao)
+
         # 3. Salvar no Storage (Camada de Infra)
         # O storage lida com a E/S de disco e retorna o caminho
         caminho_storage = self.storage.save(file_stream, file_name, content_type)

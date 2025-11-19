@@ -1,5 +1,5 @@
 
-const API_URL = 'http://localhost:5000/api';
+export const API_URL = 'http://localhost:5000/api';
 
 /**
  * Módulo de API para interagir com o backend.

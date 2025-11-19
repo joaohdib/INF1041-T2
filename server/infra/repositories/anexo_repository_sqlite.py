@@ -1,5 +1,6 @@
 from typing import List
 from sqlalchemy.orm import Session
+from sqlalchemy import delete
 from domain.anexo import Anexo as DomainAnexo
 from use_cases.repository_interfaces import IAnexoRepository
 from infra.db.models import Anexo as ModelAnexo
@@ -48,3 +49,9 @@ class AnexoRepositorySqlite(IAnexoRepository):
         ).all()
         
         return [self._map_model_to_domain(row) for row in rows_model]
+    
+    def delete_by_transacao_id(self, id_transacao: str) -> None:
+        """ Deleta registros de anexo para uma transação. """
+        stmt = delete(ModelAnexo).where(ModelAnexo.id_transacao == id_transacao)
+        self.db.execute(stmt)
+        print(f"Repositório (SQLAlchemy): Deletados anexos da transação {id_transacao}.")

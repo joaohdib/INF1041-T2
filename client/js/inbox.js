@@ -1,4 +1,4 @@
-import { api } from './api.js';
+import { api, API_URL } from './api.js';
 
 // --- Canal para notificar o dashboard ---
 const broadcastChannel = new BroadcastChannel('plano_app_channel');
@@ -173,6 +173,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const anexos = await api.getAnexos(transacaoId);
             if (anexos.length > 0) {
+                const anexo = anexos[0];
                 const placeholder = document.querySelector(`.receipt-icon-placeholder[data-transacao-id="${transacaoId}"]`);
                 if (placeholder) {
                     // Ícone de "clips" ou "imagem"
@@ -332,6 +333,27 @@ document.addEventListener('DOMContentLoaded', () => {
         editCategoria.value = transacao.id_categoria || '';
         editPerfil.value = transacao.id_perfil || '';
         
+        const containerAnexo = document.getElementById('container-anexo-existente');
+        const nomeAnexoSpan = document.getElementById('nome-anexo-atual');
+        const btnVerAnexo = document.getElementById('btn-ver-anexo-atual');
+        
+        // Reseta estado (esconde)
+        if (containerAnexo) containerAnexo.classList.add('hidden');
+
+        try {
+            const anexos = await api.getAnexos(id);
+            if (anexos && anexos.length > 0 && containerAnexo) {
+                const anexo = anexos[0];
+                containerAnexo.classList.remove('hidden');
+                nomeAnexoSpan.textContent = anexo.nome_arquivo;
+                
+                // Define ação do botão visualizar
+                btnVerAnexo.onclick = () => handleAbrirAnexoViewer(anexo.caminho_storage);
+            }
+        } catch (error) {
+            console.error("Erro ao verificar anexos na edição", error);
+        }
+
         modalEdit.classList.remove('hidden');
     }
     

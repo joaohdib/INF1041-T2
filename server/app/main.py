@@ -1,6 +1,6 @@
 import sys
 import os
-from flask import Flask, jsonify
+from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS  
 
 # Garante que os módulos das pastas irmãs sejam encontrados
@@ -101,6 +101,13 @@ app.register_blueprint(transacao_bp, url_prefix='/api/transacoes')
 app.register_blueprint(meta_bp, url_prefix='/api/metas')
 app.register_blueprint(reserva_bp, url_prefix='/api/reservas')
 app.register_blueprint(data_bp, url_prefix='/api/data')
+
+# Isso permite que o navegador acesse http://localhost:5000/uploads/nome-do-arquivo.jpg
+@app.route('/uploads/<path:filename>')
+def uploaded_file(filename):
+    # Caminho absoluto para a pasta uploads (baseado na execução do server)
+    uploads_dir = os.path.join(os.getcwd(), 'uploads')
+    return send_from_directory(uploads_dir, filename)
 
 # --- Gerenciamento de Sessão (Teardown) ---
 @app.teardown_appcontext

@@ -107,7 +107,6 @@ document.addEventListener('DOMContentLoaded', () => {
         tableBody.innerHTML = `<tr><td colspan="8" style="text-align: center;">Carregando...</td></tr>`;
         
         try {
-            // --- Carrega TODOS por padrão ---
             const transacoes = await api.getInboxFiltrado(params);
             transacoesCache = transacoes; 
 
@@ -123,24 +122,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 tr.dataset.status = t.status; 
 
                 const catClasse = t.id_categoria ? '' : 'sem-categoria';
-                const catTexto = t.id_categoria ? t.id_categoria : 'Sem categoria';
+                const catTexto = t.id_categoria ? t.id_categoria : 'Sem categoria'; // Nota: aqui idealmente buscaria o nome da categoria pelo ID se possível
                 const perfilClasse = t.id_perfil ? '' : 'sem-perfil';
                 const perfilTexto = t.id_perfil ? t.id_perfil : 'Sem perfil';
                 const statusClasse = t.status === 'PENDENTE' ? 'status-pendente' : 'status-processado';
 
-                // --- Lógica para Ações (Editar/Deletar) ---
-                let acoesHtml = `<button class="btn-acao btn-deletar" data-id="${t.id}">Deletar</button>`;
+                let botoesHtml = '';
+                
+                // 1. Botão Editar (só para pendentes)
                 if (t.status === 'PENDENTE') {
-                    acoesHtml = `
-                        <button class="btn-acao btn-editar" data-id="${t.id}">Editar</button>
-                    ` + acoesHtml;
-                } else {
-                    acoesHtml = `
-                        <span class="receipt-icon-placeholder" data-transacao-id="${t.id}"></span>
-                    ` + acoesHtml;
+                    botoesHtml += `<button class="btn-acao btn-editar" data-id="${t.id}">Editar</button> `;
                 }
+                
+                // 2. Botão Deletar (sempre)
+                botoesHtml += `<button class="btn-acao btn-deletar" data-id="${t.id}">Deletar</button> `;
+                
+                // 3. Placeholder do Ícone (Sempre à direita, independente do status)
+                botoesHtml += `<span class="receipt-icon-placeholder" data-transacao-id="${t.id}" style="margin-left: 8px; vertical-align: middle; cursor: pointer;"></span>`;
 
                 const valorNumero = t.valor * (t.tipo === 'DESPESA' ? -1 : 1);
+                
+                // Nota: Se quiser mostrar o nome da categoria ao invés do ID, precisaria cruzar com o cache de categorias.
+                // Por enquanto mantemos a lógica original de exibição.
+
                 tr.innerHTML = `
                     <td><input type="checkbox" class="checkbox-item" data-id="${t.id}"></td>
                     <td>${formatarData(t.data)}</td>
@@ -151,14 +155,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td><span class="${catClasse}">${catTexto}</span></td>
                     <td><span class="${perfilClasse}">${perfilTexto}</span></td>
                     <td class="${statusClasse}">${t.status}</td>
-                    <td>${acoesHtml}</td>
+                    <td style="white-space: nowrap;">${botoesHtml}</td> 
                 `;
                 tableBody.appendChild(tr);
 
-                // --- Se processada, busca o anexo ---
-                if (t.status === 'PROCESSADO') {
-                    verificarAnexos(t.id);
-                }
+                verificarAnexos(t.id);
             });
 
         } catch (error) {
@@ -174,15 +175,19 @@ document.addEventListener('DOMContentLoaded', () => {
             if (anexos.length > 0) {
                 const placeholder = document.querySelector(`.receipt-icon-placeholder[data-transacao-id="${transacaoId}"]`);
                 if (placeholder) {
+                    // Ícone de "clips" ou "imagem"
                     placeholder.innerHTML = `
                         <span class="receipt-icon" data-anexo-path="${anexos[0].caminho_storage}" title="Ver recibo">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+                            </svg>
                         </span>
                     `;
                 }
             }
         } catch (error) {
-            console.error(`Falha ao buscar anexos para ${transacaoId}`, error);
+            // Silencioso, pois pode não ter anexo
+            // console.error(`Falha ao buscar anexos para ${transacaoId}`, error);
         }
     }
 
@@ -391,8 +396,12 @@ document.addEventListener('DOMContentLoaded', () => {
     
     /** --- Abre o visualizador de anexo --- */
     function handleAbrirAnexoViewer(caminho) {
-        // TODO: Tratar PDFs. Por enquanto, só imagens.
-        const urlCompleta = `${API_URL.replace('/api', '')}/${caminho}`;
+        const baseUrl = API_URL.replace('/api', ''); 
+        
+        const caminhoLimpo = caminho.replace(/\\/g, '/');
+        
+        const urlCompleta = `${baseUrl}/${caminhoLimpo}`;
+        
         anexoImageViewer.src = urlCompleta;
         modalAnexoViewer.classList.remove('hidden');
     }

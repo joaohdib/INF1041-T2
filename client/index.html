@@ -1,105 +1,141 @@
 <!DOCTYPE html>
 <html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dashboard - Plano</title>
-    <link rel="stylesheet" href="css/style.css">
-</head>
-<body>
-
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
     <header>
-        <h1>PLANO</h1>
+      <h1>PLANO</h1>
     </header>
 
     <main class="dashboard-container">
-        <section class="stats-grid">
-            <div class="card">
-                <h3>Saldo Atual</h3>
-                <span id="saldo-atual" class="valor">R$ 0,00</span>
-            </div>
-            <div class="card">
-                <h3>Receitas (mês)</h3>
-                <span id="receitas-mes" class="valor positivo">R$ 0,00</span>
-            </div>
-            <div class="card">
-                <h3>Despesas (mês)</h3>
-                <span id="despesas-mes" class="valor negativo">R$ 0,00</span>
-            </div>
-        </section>
+      <section class="stats-grid">
+        <div class="card">
+          <h3>Saldo Atual</h3>
+          <span id="saldo-atual" class="valor">R$ 0,00</span>
+        </div>
+        <div class="card">
+          <h3>Receitas (mês)</h3>
+          <span id="receitas-mes" class="valor positivo">R$ 0,00</span>
+        </div>
+        <div class="card">
+          <h3>Despesas (mês)</h3>
+          <span id="despesas-mes" class="valor negativo">R$ 0,00</span>
+        </div>
+      </section>
 
-        <section class="acoes-rapidas card">
-            <h3>Ações Rápidas</h3>
-            <div class="botoes-acao">
-                <button id="btn-ver-inbox">Ver Inbox</button>
-                <button id="btn-criar-meta">Criar Meta</button>
-                <button>Relatórios</button>
-                <button>Configurações</button>
-            </div>
-        </section>
+      <section class="acoes-rapidas card">
+        <h3>Ações Rápidas</h3>
+        <div class="botoes-acao">
+          <button id="btn-ver-inbox">Ver Inbox</button>
+          <button id="btn-criar-meta">Criar Meta</button>
+          <button>Relatórios</button>
+          <button>Configurações</button>
+        </div>
+      </section>
     </main>
 
     <button id="btn-add-transacao" class="fab">+</button>
 
     <div id="modal-backdrop" class="modal-backdrop hidden">
-        <div class="modal">
-            <form id="form-add-transacao" enctype="multipart/form-data">
-                <h2>Adicionar transação</h2>
-                
-                <div class="tipo-toggle">
-                    <button type="button" id="btn-tipo-despesa" class="toggle-btn active" data-tipo="DESPESA">Despesa</button>
-                    <button type="button" id="btn-tipo-receita" class="toggle-btn" data-tipo="RECEITA">Receita</button>
-                </div>
+      <div class="modal">
+        <form id="form-add-transacao" enctype="multipart/form-data">
+          <h2>Adicionar transação</h2>
 
-                <div class="form-group">
-                    <label for="transacao-valor">Valor (R$)</label>
-                    <input type="number" id="transacao-valor" step="0.01" placeholder="0,00" required>
-                </div>
-                
-                <div class="form-group">
-                    <label for="transacao-data">Data</label>
-                    <input type="date" id="transacao-data" required>
-                </div>
+          <div class="tipo-toggle">
+            <button
+              type="button"
+              id="btn-tipo-despesa"
+              class="toggle-btn active"
+              data-tipo="DESPESA"
+            >
+              Despesa
+            </button>
+            <button
+              type="button"
+              id="btn-tipo-receita"
+              class="toggle-btn"
+              data-tipo="RECEITA"
+            >
+              Receita
+            </button>
+          </div>
 
-                <div id="mais-detalhes-toggle" class="detalhes-toggle">
-                    Mais detalhes (opcional)
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                </div>
+          <div class="form-group">
+            <label for="transacao-valor">Valor (R$)</label>
+            <input
+              type="number"
+              id="transacao-valor"
+              step="0.01"
+              placeholder="0,00"
+              required
+            />
+          </div>
 
-                <div id="detalhes-opcionais-content" class="detalhes-content hidden">
-                    <div class="form-group">
-                        <label for="transacao-descricao">Descrição</label>
-                        <input type="text" id="transacao-descricao" placeholder="Ex: Almoço no restaurante">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="transacao-categoria">Categoria</label>
-                        <select id="transacao-categoria">
-                            <option value="">Selecione uma categoria</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="transacao-perfil">Perfil</label>
-                        <select id="transacao-perfil">
-                            <option value="">Selecione um perfil</option>
-                        </select>
-                    </div>
+          <div class="form-group">
+            <label for="transacao-data">Data</label>
+            <input type="date" id="transacao-data" required />
+          </div>
 
-                    <div class="form-group">
-                        <label>Anexar recibo</label>
-                        <input type="file" id="transacao-anexo" name="anexo">
-                    </div>
-                </div>
+          <div id="mais-detalhes-toggle" class="detalhes-toggle">
+            Mais detalhes (opcional)
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </div>
 
-                <div class="modal-botoes">
-                    <button type="button" id="btn-cancelar-modal" class="btn-secondary">Cancelar</button>
-                    <button type="submit" class="btn-primary">Confirmar</button>
-                </div>
-            </form>
-        </div>
+          <div id="detalhes-opcionais-content" class="detalhes-content hidden">
+            <div class="form-group">
+              <label for="transacao-descricao">Descrição</label>
+              <input
+                type="text"
+                id="transacao-descricao"
+                placeholder="Ex: Almoço no restaurante"
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="transacao-categoria">Categoria</label>
+              <select id="transacao-categoria">
+                <option value="">Selecione uma categoria</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="transacao-perfil">Perfil</label>
+              <select id="transacao-perfil">
+                <option value="">Selecione um perfil</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label>Anexar recibo</label>
+              <input type="file" id="transacao-anexo" name="anexo" />
+            </div>
+          </div>
+
+          <div class="modal-botoes">
+            <button type="button" id="btn-cancelar-modal" class="btn-secondary">
+              Cancelar
+            </button>
+            <button type="submit" class="btn-primary">Confirmar</button>
+          </div>
+        </form>
+      </div>
     </div>
 
     <script type="module" src="js/dashboard.js"></script>
-</body>
+  </body>
 </html>

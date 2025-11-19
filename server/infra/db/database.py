@@ -1,11 +1,14 @@
-import sys
 import os
+import sys
+
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import scoped_session, sessionmaker
 
 # Adiciona o diretório raiz ao path para encontrar o 'domain'
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.append(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
 
 # Define o nome do arquivo do banco de dados
 DATABASE_FILE = "plano.db"
@@ -23,12 +26,14 @@ Session = scoped_session(session_factory)
 # 3. Base: A classe base para todos os seus "Models" (tabelas)
 Base = declarative_base()
 
+
 def get_db_session():
     """
     Retorna uma nova sessão do SQLAlchemy.
     Será injetada nos repositórios.
     """
     return Session()
+
 
 def init_db():
     """
@@ -38,15 +43,15 @@ def init_db():
     try:
         print("Inicializando o banco de dados (SQLAlchemy)...")
         # Importa os models aqui para que eles sejam registrados pela Base
-        from infra.db import models 
-        
+
         # Cria as tabelas com base nos Models que herdam de Base
         Base.metadata.create_all(bind=engine)
         print("Tabelas criadas com sucesso.")
     except Exception as e:
-        print(f"ERRO: Não foi possível inicializar o banco de dados.")
+        print("ERRO: Não foi possível inicializar o banco de dados.")
         print(f"Detalhe: {e}")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     """
@@ -56,4 +61,3 @@ if __name__ == "__main__":
     print("Inicializando o banco de dados...")
     init_db()
     print("Banco de dados pronto.")
-

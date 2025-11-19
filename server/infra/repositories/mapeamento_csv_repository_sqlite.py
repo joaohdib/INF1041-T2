@@ -1,7 +1,6 @@
-from sqlalchemy.orm import Session
-
 from domain.mapeamento_csv import MapeamentoCSV as DomainMapeamento
 from infra.db.models import MapeamentoCSV as ModelMapeamento
+from sqlalchemy.orm import Session
 from use_cases.repository_interfaces import IMapeamentoCSVRepository
 
 

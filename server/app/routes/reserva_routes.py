@@ -1,11 +1,10 @@
-from flask import Blueprint, request, jsonify
-
+from flask import Blueprint, jsonify, request
 from infra.db.database import get_db_session
 from infra.repositories.meta_repository_sqlite import MetaRepositorySqlite
 from infra.repositories.reserva_repository_sqlite import ReservaRepositorySqlite
 from use_cases.reserva_use_cases import (
-    CriarReserva,
     AtualizarReserva,
+    CriarReserva,
     ExcluirReserva,
     ListarMetasDisponiveisParaReserva,
 )

@@ -1,7 +1,8 @@
 from datetime import datetime, timedelta
-from use_cases.meta_use_cases import CriarMeta, MetaCalculator
-from use_cases.repository_interfaces import IMetaRepository
+
 from domain.meta import Meta
+from use_cases.meta_use_cases import CriarMeta
+from use_cases.repository_interfaces import IMetaRepository
 
 
 class FakeMetaRepository(IMetaRepository):
@@ -32,10 +33,7 @@ def test_criar_meta_sucesso_calculo_mensal():
     use_case = CriarMeta(repo)
     prazo = datetime.now() + timedelta(days=90)  # ~3 meses
     resultado = use_case.execute(
-        id_usuario="u1",
-        nome="Férias na Europa",
-        valor_alvo=1200,
-        data_limite=prazo
+        id_usuario="u1", nome="Férias na Europa", valor_alvo=1200, data_limite=prazo
     )
     # Mensal deve ficar aproximadamente 400 (1200/3) com arredondamento
     mensal = resultado["sugestoes"]["mensal"]
@@ -47,7 +45,9 @@ def test_criar_meta_falha_prazo_obrigatorio():
     repo = FakeMetaRepository()
     use_case = CriarMeta(repo)
     try:
-        use_case.execute(id_usuario="u1", nome="Meta X", valor_alvo=1000, data_limite=None)
+        use_case.execute(
+            id_usuario="u1", nome="Meta X", valor_alvo=1000, data_limite=None
+        )
         assert False, "Deveria lançar erro de prazo obrigatório"
     except ValueError as e:
         assert "Data Final" in str(e)
@@ -58,7 +58,12 @@ def test_criar_meta_falha_valor_invalido():
     use_case = CriarMeta(repo)
     for valor in [None, "abc", 0, -10]:
         try:
-            use_case.execute(id_usuario="u1", nome="Meta X", valor_alvo=valor, data_limite=datetime.now()+timedelta(days=10))
+            use_case.execute(
+                id_usuario="u1",
+                nome="Meta X",
+                valor_alvo=valor,
+                data_limite=datetime.now() + timedelta(days=10),
+            )
             assert False, f"Deveria falhar para valor {valor}"
         except ValueError:
             pass
@@ -68,7 +73,12 @@ def test_criar_meta_falha_prazo_passado():
     repo = FakeMetaRepository()
     use_case = CriarMeta(repo)
     try:
-        use_case.execute(id_usuario="u1", nome="Meta X", valor_alvo=500, data_limite=datetime.now()-timedelta(days=1))
+        use_case.execute(
+            id_usuario="u1",
+            nome="Meta X",
+            valor_alvo=500,
+            data_limite=datetime.now() - timedelta(days=1),
+        )
         assert False, "Deveria falhar para data passada"
     except ValueError as e:
         assert "futura" in str(e)

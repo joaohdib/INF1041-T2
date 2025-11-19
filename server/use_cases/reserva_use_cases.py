@@ -1,8 +1,10 @@
 from __future__ import annotations
-from typing import Dict, Any, Optional
+
+from typing import Any, Dict, Optional
 
 from domain.reserva import Reserva
-from use_cases.repository_interfaces import IReservaRepository, IMetaRepository
+
+from use_cases.repository_interfaces import IMetaRepository, IReservaRepository
 
 
 class _ReservaUseCaseBase:
@@ -35,7 +37,9 @@ class _ReservaUseCaseBase:
             "valor_atual": meta.valor_atual,
             "progresso_percentual": meta.progresso_percentual(),
             "esta_concluida": meta.esta_concluida(),
-            "concluida_em": meta.concluida_em.isoformat() if meta.concluida_em else None,
+            "concluida_em": meta.concluida_em.isoformat()
+            if meta.concluida_em
+            else None,
         }
         if payload["esta_concluida"]:
             payload["mensagem"] = "Meta concluída! Parabéns pelo objetivo atingido."
@@ -51,7 +55,9 @@ class _ReservaUseCaseBase:
             "id_transacao": reserva.id_transacao,
             "observacao": reserva.observacao,
             "criado_em": reserva.criado_em.isoformat() if reserva.criado_em else None,
-            "atualizado_em": reserva.atualizado_em.isoformat() if reserva.atualizado_em else None,
+            "atualizado_em": reserva.atualizado_em.isoformat()
+            if reserva.atualizado_em
+            else None,
         }
 
 
@@ -110,7 +116,9 @@ class AtualizarReserva(_ReservaUseCaseBase):
 
         valor_float = self._converter_valor(novo_valor)
         reserva.atualizar_valor(valor_float)
-        reserva.observacao = observacao if observacao is not None else reserva.observacao
+        reserva.observacao = (
+            observacao if observacao is not None else reserva.observacao
+        )
 
         self.reserva_repo.update(reserva)
         meta_payload = self._recalcular_meta(reserva.id_meta)
@@ -162,6 +170,8 @@ class ListarMetasDisponiveisParaReserva:
         }
 
         if not disponiveis:
-            resposta["mensagem"] = "Nenhuma meta disponível. Que tal criar uma nova meta agora?"
+            resposta["mensagem"] = (
+                "Nenhuma meta disponível. Que tal criar uma nova meta agora?"
+            )
 
         return resposta

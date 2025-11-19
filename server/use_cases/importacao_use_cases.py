@@ -3,13 +3,14 @@ import io
 import os
 import re
 from datetime import datetime
-from typing import Dict, List, Any
+from typing import Any, Dict, List
 
-from domain.transacao import Transacao, StatusTransacao, TipoTransacao
 from domain.mapeamento_csv import MapeamentoCSV
+from domain.transacao import StatusTransacao, TipoTransacao, Transacao
+
 from use_cases.repository_interfaces import (
-    ITransacaoRepository,
     IMapeamentoCSVRepository,
+    ITransacaoRepository,
 )
 
 
@@ -117,7 +118,8 @@ class ImportarExtratoBancario:
         else:
             raw_headers = linhas[0]
             fieldnames = [
-                (header.strip() or f"col_{idx}") for idx, header in enumerate(raw_headers)
+                (header.strip() or f"col_{idx}")
+                for idx, header in enumerate(raw_headers)
             ]
             data_rows = linhas[1:]
 
@@ -357,7 +359,9 @@ class SalvarMapeamentoCSV:
         }
 
         if not all(colunas.values()):
-            raise ValueError("Mapeamento inválido: Data, Valor e Descrição são obrigatórios.")
+            raise ValueError(
+                "Mapeamento inválido: Data, Valor e Descrição são obrigatórios."
+            )
 
         if len(set(colunas.values())) < 3:
             raise ValueError("Cada coluna essencial deve ser única.")

@@ -1,5 +1,7 @@
 from dataclasses import dataclass
+
 from domain.transacao import TipoTransacao
+
 
 @dataclass
 class Categoria:

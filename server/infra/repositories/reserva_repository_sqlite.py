@@ -1,8 +1,7 @@
-from sqlalchemy.orm import Session
-from sqlalchemy import func, delete
-
 from domain.reserva import Reserva
 from infra.db.models import Reserva as ReservaModel
+from sqlalchemy import delete, func
+from sqlalchemy.orm import Session
 from use_cases.repository_interfaces import IReservaRepository
 
 
@@ -21,7 +20,7 @@ class ReservaRepositorySqlite(IReservaRepository):
             id_transacao=model.id_transacao,
             observacao=model.observacao,
             criado_em=model.criado_em,
-            atualizado_em=model.atualizado_em
+            atualizado_em=model.atualizado_em,
         )
 
     def _map_reserva_to_model(self, reserva: Reserva) -> ReservaModel:
@@ -33,7 +32,7 @@ class ReservaRepositorySqlite(IReservaRepository):
             id_transacao=reserva.id_transacao,
             observacao=reserva.observacao,
             criado_em=reserva.criado_em,
-            atualizado_em=reserva.atualizado_em
+            atualizado_em=reserva.atualizado_em,
         )
 
     def add(self, reserva: Reserva) -> None:
@@ -55,13 +54,17 @@ class ReservaRepositorySqlite(IReservaRepository):
         return self._map_model_to_reserva(row)
 
     def get_by_meta(self, id_meta: str):
-        rows = self.db.query(ReservaModel).filter(ReservaModel.id_meta == id_meta).order_by(ReservaModel.criado_em.asc()).all()
+        rows = (
+            self.db.query(ReservaModel)
+            .filter(ReservaModel.id_meta == id_meta)
+            .order_by(ReservaModel.criado_em.asc())
+            .all()
+        )
         return [self._map_model_to_reserva(row) for row in rows]
 
     def get_total_by_meta(self, id_meta: str) -> float:
         total = (
-            self.db
-            .query(func.coalesce(func.sum(ReservaModel.valor), 0.0))
+            self.db.query(func.coalesce(func.sum(ReservaModel.valor), 0.0))
             .filter(ReservaModel.id_meta == id_meta)
             .scalar()
         )

@@ -1,15 +1,15 @@
-import pytest
 from datetime import datetime, timedelta
 
+import pytest
 from domain.meta import Meta
 from domain.reserva import Reserva
+from use_cases.repository_interfaces import IMetaRepository, IReservaRepository
 from use_cases.reserva_use_cases import (
-    CriarReserva,
     AtualizarReserva,
+    CriarReserva,
     ExcluirReserva,
     ListarMetasDisponiveisParaReserva,
 )
-from use_cases.repository_interfaces import IMetaRepository, IReservaRepository
 
 
 class FakeMetaRepository(IMetaRepository):
@@ -46,7 +46,9 @@ class FakeReservaRepository(IReservaRepository):
         return self.reservas.get(reserva_id)
 
     def get_by_meta(self, id_meta: str):
-        return [reserva for reserva in self.reservas.values() if reserva.id_meta == id_meta]
+        return [
+            reserva for reserva in self.reservas.values() if reserva.id_meta == id_meta
+        ]
 
     def get_total_by_meta(self, id_meta: str) -> float:
         return sum(reserva.valor for reserva in self.get_by_meta(id_meta))
@@ -108,7 +110,9 @@ def test_atualizar_reserva_recalcula_progresso():
     reserva_repo.add(Reserva(id_usuario="user1", id_meta=meta.id, valor=100.0))
 
     use_case = AtualizarReserva(reserva_repo, meta_repo)
-    resposta = use_case.execute(id_usuario="user1", id_reserva=reserva.id, novo_valor=20.0)
+    resposta = use_case.execute(
+        id_usuario="user1", id_reserva=reserva.id, novo_valor=20.0
+    )
 
     assert resposta["meta"]["valor_atual"] == pytest.approx(120.0)
     assert meta_repo.get_by_id(meta.id).valor_atual == pytest.approx(120.0)

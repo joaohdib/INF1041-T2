@@ -1,12 +1,14 @@
 from typing import List
-from sqlalchemy.orm import Session
-from sqlalchemy import delete
+
 from domain.anexo import Anexo as DomainAnexo
-from use_cases.repository_interfaces import IAnexoRepository
 from infra.db.models import Anexo as ModelAnexo
+from sqlalchemy import delete
+from sqlalchemy.orm import Session
+from use_cases.repository_interfaces import IAnexoRepository
+
 
 class AnexoRepositorySqlite(IAnexoRepository):
-    """ Repositório SQLAlchemy para Anexos. """
+    """Repositório SQLAlchemy para Anexos."""
 
     def __init__(self, db_session: Session):
         self.db = db_session
@@ -20,7 +22,7 @@ class AnexoRepositorySqlite(IAnexoRepository):
             tipo_mime=m_model.tipo_mime,
             tamanho_bytes=m_model.tamanho_bytes,
             id=m_model.id,
-            data_upload=m_model.data_upload
+            data_upload=m_model.data_upload,
         )
 
     def _map_domain_to_model(self, m_domain: DomainAnexo) -> ModelAnexo:
@@ -32,26 +34,32 @@ class AnexoRepositorySqlite(IAnexoRepository):
             caminho_storage=m_domain.caminho_storage,
             tipo_mime=m_domain.tipo_mime,
             tamanho_bytes=m_domain.tamanho_bytes,
-            data_upload=m_domain.data_upload
+            data_upload=m_domain.data_upload,
         )
 
     def add(self, anexo: DomainAnexo) -> None:
-        """ Adiciona os metadados do anexo ao banco de dados. """
+        """Adiciona os metadados do anexo ao banco de dados."""
         anexo_model = self._map_domain_to_model(anexo)
         self.db.add(anexo_model)
         # Commit é feito na camada de rota
-        print(f"Repositório (SQLAlchemy): Adicionando anexo {anexo.id} para transação {anexo.id_transacao}.")
+        print(
+            f"Repositório (SQLAlchemy): Adicionando anexo {anexo.id} para transação {anexo.id_transacao}."
+        )
 
     def get_by_transacao_id(self, id_transacao: str) -> List[DomainAnexo]:
-        """ Busca anexos por ID de transação. """
-        rows_model = self.db.query(ModelAnexo).filter(
-            ModelAnexo.id_transacao == id_transacao
-        ).all()
-        
+        """Busca anexos por ID de transação."""
+        rows_model = (
+            self.db.query(ModelAnexo)
+            .filter(ModelAnexo.id_transacao == id_transacao)
+            .all()
+        )
+
         return [self._map_model_to_domain(row) for row in rows_model]
-    
+
     def delete_by_transacao_id(self, id_transacao: str) -> None:
-        """ Deleta registros de anexo para uma transação. """
+        """Deleta registros de anexo para uma transação."""
         stmt = delete(ModelAnexo).where(ModelAnexo.id_transacao == id_transacao)
         self.db.execute(stmt)
-        print(f"Repositório (SQLAlchemy): Deletados anexos da transação {id_transacao}.")
+        print(
+            f"Repositório (SQLAlchemy): Deletados anexos da transação {id_transacao}."
+        )

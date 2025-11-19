@@ -1,10 +1,11 @@
 from __future__ import annotations
-from dataclasses import asdict
-from datetime import datetime, date
+
 import math
-from typing import Dict, Any
+from datetime import date, datetime
+from typing import Any, Dict
 
 from domain.meta import Meta
+
 from use_cases.repository_interfaces import IMetaRepository
 
 
@@ -18,7 +19,9 @@ class MetaCalculator:
         return (end - today).days
 
     @staticmethod
-    def periodic_suggestions(valor_total: float, deadline: datetime) -> Dict[str, float]:
+    def periodic_suggestions(
+        valor_total: float, deadline: datetime
+    ) -> Dict[str, float]:
         days = MetaCalculator._days_until(deadline)
         if days <= 0:
             raise ValueError("A data limite deve ser futura.")
@@ -35,8 +38,15 @@ class CriarMeta:
     def __init__(self, meta_repo: IMetaRepository):
         self.meta_repo = meta_repo
 
-    def execute(self, *, id_usuario: str, nome: str, valor_alvo: Any, data_limite: Any,
-                id_perfil: str | None = None) -> Dict[str, Any]:
+    def execute(
+        self,
+        *,
+        id_usuario: str,
+        nome: str,
+        valor_alvo: Any,
+        data_limite: Any,
+        id_perfil: str | None = None,
+    ) -> Dict[str, Any]:
         # 1. Validações e normalização
         if not nome or str(nome).strip() == "":
             raise ValueError("Nome é obrigatório.")
@@ -74,7 +84,7 @@ class CriarMeta:
             nome=nome,
             valor_alvo=valor,
             data_limite=deadline,
-            id_perfil=id_perfil
+            id_perfil=id_perfil,
         )
 
         self.meta_repo.add(meta)
@@ -85,5 +95,5 @@ class CriarMeta:
             "nome": meta.nome,
             "valor_alvo": meta.valor_alvo,
             "data_limite": meta.data_limite.isoformat(),
-            "sugestoes": sugestoes
+            "sugestoes": sugestoes,
         }

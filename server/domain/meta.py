@@ -1,6 +1,7 @@
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
-import uuid
+
 
 @dataclass
 class Meta:
@@ -12,6 +13,7 @@ class Meta:
     - data limite para atingir o objetivo (data_limite)
     - vínculo opcional a um Perfil Financeiro (id_perfil)
     """
+
     id_usuario: str
     nome: str
     valor_alvo: float

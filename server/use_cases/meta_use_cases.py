@@ -4,7 +4,7 @@ import math
 from datetime import datetime, date
 from typing import Any, Dict
 
-from domain.meta import Meta
+from domain.meta import Meta, StatusMeta
 from use_cases.repository_interfaces import IMetaRepository, IMetaUsoRepository
 
 
@@ -104,6 +104,173 @@ class CriarMeta:
         }
 
 
+class EditarMeta:
+    def __init__(self, meta_repo: IMetaRepository):
+        self.meta_repo = meta_repo
+
+    def execute(
+        self,
+        *,
+        id_meta: str,
+        id_usuario: str,
+        nome: str,
+        valor_alvo: Any,
+        data_limite: Any,
+    ) -> Dict[str, Any]:
+        meta = self.meta_repo.get_by_id(id_meta)
+        if not meta:
+            raise ValueError("Meta não encontrada.")
+        if meta.id_usuario != id_usuario:
+            raise ValueError("Operação não permitida.")
+        if meta.status == StatusMeta.CONCLUIDA:
+            raise ValueError("Não é possível editar uma meta concluída.")
+
+        # Validações dos novos valores
+        if not nome or str(nome).strip() == "":
+            raise ValueError("Nome é obrigatório.")
+
+        try:
+            valor = float(valor_alvo)
+        except (TypeError, ValueError):
+            raise ValueError("Informe um valor numérico válido para 'Valor'.")
+        if valor <= 0:
+            raise ValueError("O valor deve ser maior que zero.")
+
+        if not data_limite:
+            raise ValueError("Data Final é obrigatória.")
+
+        if isinstance(data_limite, str):
+            try:
+                deadline = datetime.fromisoformat(data_limite)
+            except ValueError:
+                try:
+                    deadline = datetime.strptime(data_limite, "%Y-%m-%d")
+                except ValueError:
+                    raise ValueError("Data Final deve estar em formato ISO.")
+        elif isinstance(data_limite, datetime):
+            deadline = data_limite
+        else:
+            raise ValueError("Formato de Data Final inválido.")
+
+        if deadline.date() <= datetime.now().date():
+            raise ValueError("A data limite deve ser futura.")
+
+        # Aplica as alterações
+        meta.editar(nome, valor, deadline)
+        self.meta_repo.update(meta)
+
+        return {
+            "id": meta.id,
+            "nome": meta.nome,
+            "valor_alvo": meta.valor_alvo,
+            "data_limite": meta.data_limite.isoformat(),
+            "progresso_percentual": meta.progresso_percentual(),
+            "mensagem": "Meta editada com sucesso!",
+        }
+
+
+class PausarMeta:
+    def __init__(self, meta_repo: IMetaRepository):
+        self.meta_repo = meta_repo
+
+    def execute(self, *, id_meta: str, id_usuario: str) -> Dict[str, Any]:
+        meta = self.meta_repo.get_by_id(id_meta)
+        if not meta:
+            raise ValueError("Meta não encontrada.")
+        if meta.id_usuario != id_usuario:
+            raise ValueError("Operação não permitida.")
+        if meta.status == StatusMeta.CONCLUIDA:
+            raise ValueError("Não é possível pausar uma meta concluída.")
+
+        meta.pausar()
+        self.meta_repo.update(meta)
+
+        return {
+            "id": meta.id,
+            "status": meta.status.value,
+            "mensagem": "Meta pausada com sucesso!",
+        }
+
+
+class RetomarMeta:
+    def __init__(self, meta_repo: IMetaRepository):
+        self.meta_repo = meta_repo
+
+    def execute(self, *, id_meta: str, id_usuario: str) -> Dict[str, Any]:
+        meta = self.meta_repo.get_by_id(id_meta)
+        if not meta:
+            raise ValueError("Meta não encontrada.")
+        if meta.id_usuario != id_usuario:
+            raise ValueError("Operação não permitida.")
+        if meta.status != StatusMeta.PAUSADA:
+            raise ValueError("Só é possível retomar metas pausadas.")
+
+        meta.retomar()
+        self.meta_repo.update(meta)
+
+        return {
+            "id": meta.id,
+            "status": meta.status.value,
+            "mensagem": "Meta retomada com sucesso!",
+        }
+
+
+class CancelarMeta:
+    def __init__(self, meta_repo: IMetaRepository):
+        self.meta_repo = meta_repo
+
+    def execute(
+        self,
+        *,
+        id_meta: str,
+        id_usuario: str,
+        acao_fundos: str,
+        id_meta_destino: str | None = None,
+    ) -> Dict[str, Any]:
+        meta = self.meta_repo.get_by_id(id_meta)
+        if not meta:
+            raise ValueError("Meta não encontrada.")
+        if meta.id_usuario != id_usuario:
+            raise ValueError("Operação não permitida.")
+        if meta.status == StatusMeta.CONCLUIDA:
+            raise ValueError("Não é possível cancelar uma meta concluída.")
+
+        if acao_fundos not in ["manter", "liberar", "realocar"]:
+            raise ValueError("Ação de fundos inválida.")
+
+        if acao_fundos == "realocar" and not id_meta_destino:
+            raise ValueError("ID da meta destino é obrigatório para realocação.")
+
+        # Realocar fundos se necessário
+        if acao_fundos == "realocar":
+            meta_destino = self.meta_repo.get_by_id(id_meta_destino)
+            if not meta_destino:
+                raise ValueError("Meta destino não encontrada.")
+            if meta_destino.id_usuario != id_usuario:
+                raise ValueError("Meta destino não pertence ao usuário.")
+            if meta_destino.status != StatusMeta.ATIVA:
+                raise ValueError("Meta destino deve estar ativa.")
+
+            # Transfere o valor
+            meta_destino.registrar_aporte(meta.valor_atual)
+            self.meta_repo.update(meta_destino)
+
+        # Liberar ou manter fundos (manter = valor_atual permanece, mas meta cancelada)
+        if acao_fundos == "liberar":
+            meta.valor_atual = 0.0
+
+        meta.cancelar()
+        self.meta_repo.update(meta)
+
+        return {
+            "id": meta.id,
+            "status": meta.status.value,
+            "acao_fundos": acao_fundos,
+            "id_meta_destino": id_meta_destino,
+            "mensagem": "Meta cancelada com sucesso!",
+        }
+
+
 class ConcluirMeta:
     def __init__(self, meta_repo: IMetaRepository):
         self.meta_repo = meta_repo
@@ -117,20 +284,8 @@ class ConcluirMeta:
         if meta.esta_concluida():
             raise ValueError("Meta já está concluída.")
 
-        print(f"USE CASE: Concluindo meta {id_meta}")
         meta.concluir_manual()
-        print(f"USE CASE: Meta concluída - concluida_em: {meta.concluida_em}")
-
-        # Força a atualização chamando explicitamente o update
         self.meta_repo.update(meta)
-        print("USE CASE: Meta atualizada no repositório")
-
-        # Recupera a meta novamente para verificar se foi atualizada
-        meta_verificada = self.meta_repo.get_by_id(id_meta)
-        print(
-            f"USE CASE: Meta verificada - concluida: {meta_verificada.esta_concluida()}, "
-            f"concluida_em: {meta_verificada.concluida_em}"
-        )
 
         return {
             "id": meta.id,
@@ -191,12 +346,8 @@ class LiberarSaldoMeta:
         total_utilizado = self.meta_uso_repo.sum_uso_por_meta(id_meta)
         saldo_restante = meta.valor_atual - total_utilizado
 
-        print(f"USE CASE: Finalizando meta {id_meta}")
         meta.finalizar()
-        print(f"USE CASE: Meta finalizada - finalizada_em: {meta.finalizada_em}")
-
         self.meta_repo.update(meta)
-        print("USE CASE: Meta finalizada no repositório")
 
         return {
             "id_meta": id_meta,

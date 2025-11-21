@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List
 
-from domain.meta import Meta
+from domain.meta import Meta, StatusMeta
 from infra.db.models import Meta as MetaModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -23,6 +23,8 @@ class MetaRepositorySqlite(IMetaRepository):
             data_limite=model.data_limite or datetime.now(),
             id_perfil=model.id_perfil,
             concluida_em=model.concluida_em,
+            finalizada_em=model.finalizada_em,
+            status=StatusMeta(model.status),
             id=model.id,
         )
 
@@ -36,14 +38,13 @@ class MetaRepositorySqlite(IMetaRepository):
             data_limite=meta.data_limite,
             id_perfil=meta.id_perfil,
             concluida_em=meta.concluida_em,
+            finalizada_em=meta.finalizada_em,
+            status=meta.status.value,
         )
 
     def add(self, meta: Meta) -> None:
         meta_model = self._map_meta_to_model(meta)
         self.db.add(meta_model)
-        print(
-            f"Repositório (SQLAlchemy): Meta {meta.id} criada para usuário {meta.id_usuario}."
-        )
 
     def get_by_usuario(self, id_usuario: str) -> List[Meta]:
         rows = (

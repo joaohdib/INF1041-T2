@@ -4,9 +4,6 @@ from sqlalchemy import Column, DateTime, Enum, Float, ForeignKey, Integer, Strin
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
-# NOTA: Estes são os "Models de Infra", não as "Entidades de Domínio".
-# Eles representam as TABELAS, não a regra de negócio.
-
 
 class Perfil(Base):
     __tablename__ = "perfil"
@@ -37,7 +34,6 @@ class Transacao(Base):
     id_perfil = Column(String, ForeignKey("perfil.id"), nullable=True)
     id_projeto = Column(String, nullable=True)
 
-    # Relacionamentos (opcional, mas bom para queries futuras)
     categoria = relationship("Categoria")
     perfil = relationship("Perfil")
 
@@ -52,6 +48,7 @@ class Meta(Base):
     data_limite = Column(DateTime, nullable=True)
     concluida_em = Column(DateTime, nullable=True)
     finalizada_em = Column(DateTime, nullable=True)
+    status = Column(String, nullable=False, default="ATIVA")  # ATIVA, PAUSADA, CONCLUIDA, CANCELADA
 
     id_perfil = Column(String, ForeignKey("perfil.id"), nullable=True)
 

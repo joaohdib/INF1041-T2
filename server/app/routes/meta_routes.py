@@ -4,6 +4,10 @@ from infra.repositories.meta_repository_sqlite import MetaRepositorySqlite
 from infra.repositories.meta_uso_repository_sqlite import MetaUsoRepositorySqlite
 from use_cases.meta_use_cases import (
     CriarMeta,
+    EditarMeta,
+    PausarMeta,
+    RetomarMeta,
+    CancelarMeta,
     ConcluirMeta,
     RegistrarUsoMeta,
     LiberarSaldoMeta,
@@ -41,6 +45,125 @@ def criar_meta_route():
     except Exception as e:
         db_session.rollback()
         print(f"Erro interno na criação da meta: {e}")
+        return jsonify({"erro": f"Erro interno: {e}"}), 500
+    finally:
+        db_session.close()
+
+
+@meta_bp.route("/meta/<id_meta>/editar", methods=["PUT"])
+def editar_meta_route(id_meta):
+    id_usuario = "usuario_mock_id"
+    data = request.json or {}
+
+    db_session = get_db_session()
+
+    try:
+        meta_repo = MetaRepositorySqlite(db_session)
+        use_case = EditarMeta(meta_repo)
+
+        resultado = use_case.execute(
+            id_meta=id_meta,
+            id_usuario=id_usuario,
+            nome=data.get("nome"),
+            valor_alvo=data.get("valor_alvo"),
+            data_limite=data.get("data_limite"),
+        )
+
+        db_session.commit()
+        return jsonify(resultado), 200
+
+    except ValueError as e:
+        db_session.rollback()
+        print(f"Erro de validação na edição da meta: {e}")
+        return jsonify({"erro": str(e)}), 400
+    except Exception as e:
+        db_session.rollback()
+        print(f"Erro interno na edição da meta: {e}")
+        return jsonify({"erro": f"Erro interno: {e}"}), 500
+    finally:
+        db_session.close()
+
+
+@meta_bp.route("/meta/<id_meta>/pausar", methods=["POST"])
+def pausar_meta_route(id_meta):
+    id_usuario = "usuario_mock_id"
+    db_session = get_db_session()
+
+    try:
+        meta_repo = MetaRepositorySqlite(db_session)
+        use_case = PausarMeta(meta_repo)
+
+        resultado = use_case.execute(id_meta=id_meta, id_usuario=id_usuario)
+
+        db_session.commit()
+        return jsonify(resultado), 200
+
+    except ValueError as e:
+        db_session.rollback()
+        print(f"Erro de validação ao pausar meta: {e}")
+        return jsonify({"erro": str(e)}), 400
+    except Exception as e:
+        db_session.rollback()
+        print(f"Erro interno ao pausar meta: {e}")
+        return jsonify({"erro": f"Erro interno: {e}"}), 500
+    finally:
+        db_session.close()
+
+
+@meta_bp.route("/meta/<id_meta>/retomar", methods=["POST"])
+def retomar_meta_route(id_meta):
+    id_usuario = "usuario_mock_id"
+    db_session = get_db_session()
+
+    try:
+        meta_repo = MetaRepositorySqlite(db_session)
+        use_case = RetomarMeta(meta_repo)
+
+        resultado = use_case.execute(id_meta=id_meta, id_usuario=id_usuario)
+
+        db_session.commit()
+        return jsonify(resultado), 200
+
+    except ValueError as e:
+        db_session.rollback()
+        print(f"Erro de validação ao retomar meta: {e}")
+        return jsonify({"erro": str(e)}), 400
+    except Exception as e:
+        db_session.rollback()
+        print(f"Erro interno ao retomar meta: {e}")
+        return jsonify({"erro": f"Erro interno: {e}"}), 500
+    finally:
+        db_session.close()
+
+
+@meta_bp.route("/meta/<id_meta>/cancelar", methods=["POST"])
+def cancelar_meta_route(id_meta):
+    id_usuario = "usuario_mock_id"
+    data = request.json or {}
+
+    db_session = get_db_session()
+
+    try:
+        meta_repo = MetaRepositorySqlite(db_session)
+        use_case = CancelarMeta(meta_repo)
+
+        resultado = use_case.execute(
+            id_meta=id_meta,
+            id_usuario=id_usuario,
+            acao_fundos=data.get("acao_fundos", "manter"),
+            id_meta_destino=data.get("id_meta_destino"),
+        )
+
+        db_session.commit()
+        return jsonify(resultado), 200
+
+    except ValueError as e:
+        db_session.rollback()
+        print(f"Erro de validação ao cancelar meta: {e}")
+        return jsonify({"erro": str(e)}), 400
+    except Exception as e:
+        db_session.rollback()
+        print(f"Erro interno ao cancelar meta: {e}")
         return jsonify({"erro": f"Erro interno: {e}"}), 500
     finally:
         db_session.close()
@@ -147,9 +270,11 @@ def detalhes_meta_route(id_meta):
             {
                 "id": meta.id,
                 "nome": meta.nome,
+                "valor_alvo": meta.valor_alvo,
                 "valor_economizado": meta.valor_atual,
                 "valor_utilizado": total_utilizado,
                 "saldo_restante": saldo_restante,
+                "status": meta.status.value,
                 "concluida": meta.esta_concluida(),
                 "finalizada": meta.esta_finalizada(),
                 "concluida_em": meta.concluida_em.isoformat()

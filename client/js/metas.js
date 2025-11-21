@@ -132,6 +132,7 @@ document.addEventListener("DOMContentLoaded", () => {
         metaPayload.esta_concluida ?? existente.estaConcluida
       ),
       concluidaEm: metaPayload.concluida_em || existente.concluidaEm || null,
+      status: metaPayload.status || existente.status || "ATIVA",
       reservas: existente.reservas || [],
     };
 
@@ -193,8 +194,10 @@ document.addEventListener("DOMContentLoaded", () => {
   async function carregarMetas() {
     if (!metasContainer) return;
     try {
-      const data = await api.getMetasDisponiveis();
-      const metas = data?.metas || [];
+      const response = await fetch('/api/data/metas');
+      if (!response.ok) throw new Error('Erro ao carregar metas');
+      
+      const metas = await response.json();
       const idsAtivos = new Set();
 
       metas.forEach((meta) => {
@@ -210,15 +213,16 @@ document.addEventListener("DOMContentLoaded", () => {
           dataLimite: meta.data_limite,
           idPerfil: existente?.idPerfil ?? null,
           perfilNome: existente?.perfilNome || "",
-          estaConcluida: false,
-          concluidaEm: null,
+          estaConcluida: meta.status === 'CONCLUIDA',
+          concluidaEm: meta.concluida_em,
+          status: meta.status,
           reservas: existente?.reservas || [],
         });
       });
 
       Array.from(metasState.entries()).forEach(([id, meta]) => {
         if (!meta) return;
-        if (!meta.estaConcluida && !idsAtivos.has(id)) {
+        if (!idsAtivos.has(id)) {
           metasState.delete(id);
         }
       });
@@ -226,10 +230,6 @@ document.addEventListener("DOMContentLoaded", () => {
       if (metasEmpty) {
         if (metas.length === 0) {
           metasEmpty.classList.remove("hidden");
-          if (data?.mensagem) {
-            const titulo = metasEmpty.querySelector("strong");
-            if (titulo) titulo.textContent = data.mensagem;
-          }
         } else {
           metasEmpty.classList.add("hidden");
         }
@@ -257,7 +257,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const metasFinalizadas = [];
 
     metasState.forEach((meta) => {
-      if (meta.estaConcluida) {
+      if (meta.status === 'CONCLUIDA' || meta.estaConcluida) {
         metasFinalizadas.push(meta);
       } else {
         metasAbertas.push(meta);
@@ -305,6 +305,7 @@ document.addEventListener("DOMContentLoaded", () => {
       concluida && meta.concluidaEm
         ? `Concluída em ${formatDateValue(meta.concluidaEm)}`
         : `Até ${formatDateValue(meta.dataLimite)}`;
+    
     const card = document.createElement("article");
     card.className = concluida ? "meta-card meta-card-concluida" : "meta-card";
     card.dataset.metaId = meta.id;
@@ -317,11 +318,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 </div>
                 <div style="text-align: right;">
                     <span class="meta-deadline">${deadlineLabel}</span>
-                    ${
-                      concluida
-                        ? '<span class="meta-tag meta-tag-success">Concluída</span>'
-                        : ""
-                    }
+                    <span class="meta-status ${meta.status.toLowerCase()}">${meta.status}</span>
                 </div>
             </div>
             <div class="meta-progress-bar">
@@ -333,11 +330,28 @@ document.addEventListener("DOMContentLoaded", () => {
     )}</span>
                 <span>${progresso}%</span>
             </div>
-            <div class="meta-actions-row">
-                <button type="button" class="btn-primary btn-small" data-action="abrir-reserva" data-meta-id="${
-                  meta.id
-                }">Registrar reserva</button>
-            </div>
+        `;
+
+    const actionsRow = document.createElement("div");
+    actionsRow.className = "meta-actions-row";
+
+    // Botão de reserva (sempre presente para metas não concluídas e não canceladas)
+    if (!concluida && meta.status !== 'CANCELADA') {
+      const reservaButton = document.createElement("button");
+      reservaButton.type = "button";
+      reservaButton.className = "btn-primary btn-small";
+      reservaButton.dataset.action = "abrir-reserva";
+      reservaButton.dataset.metaId = meta.id;
+      reservaButton.textContent = "Registrar reserva";
+      actionsRow.appendChild(reservaButton);
+    }
+
+    // Adicionar botões de gestão específicos do status
+    adicionarBotoesGestaoMeta(actionsRow, meta);
+    
+    card.appendChild(actionsRow);
+
+    card.innerHTML += `
             <p class="meta-reservas-title">Reservas registradas</p>
         `;
 
@@ -359,6 +373,35 @@ document.addEventListener("DOMContentLoaded", () => {
 
     card.appendChild(reservasList);
     return card;
+  }
+
+  function adicionarBotoesGestaoMeta(actionsRow, meta) {
+    if (meta.status === 'ATIVA') {
+      // Botões para meta ativa
+      actionsRow.innerHTML += `
+        <button type="button" class="btn-secondary btn-small" data-action="editar-meta" data-meta-id="${meta.id}">Editar</button>
+        <button type="button" class="btn-warning btn-small" data-action="pausar-meta" data-meta-id="${meta.id}">Pausar</button>
+        <button type="button" class="btn-danger btn-small" data-action="cancelar-meta" data-meta-id="${meta.id}">Cancelar</button>
+      `;
+    } else if (meta.status === 'PAUSADA') {
+      // Botões para meta pausada
+      actionsRow.innerHTML += `
+        <button type="button" class="btn-secondary btn-small" data-action="editar-meta" data-meta-id="${meta.id}">Editar</button>
+        <button type="button" class="btn-success btn-small" data-action="retomar-meta" data-meta-id="${meta.id}">Retomar</button>
+        <button type="button" class="btn-danger btn-small" data-action="cancelar-meta" data-meta-id="${meta.id}">Cancelar</button>
+      `;
+    } else if (meta.status === 'CANCELADA') {
+      // Apenas visualização para metas canceladas
+      actionsRow.innerHTML += `
+        <span class="meta-status-cancelada">Meta Cancelada</span>
+      `;
+    }
+    
+    // Configurar eventos dos novos botões
+    actionsRow.querySelector('[data-action="editar-meta"]')?.addEventListener('click', () => editarMeta(meta));
+    actionsRow.querySelector('[data-action="pausar-meta"]')?.addEventListener('click', () => pausarMeta(meta.id));
+    actionsRow.querySelector('[data-action="retomar-meta"]')?.addEventListener('click', () => retomarMeta(meta.id));
+    actionsRow.querySelector('[data-action="cancelar-meta"]')?.addEventListener('click', () => cancelarMeta(meta));
   }
 
   function buildReservaItem(meta, reserva) {
@@ -495,11 +538,160 @@ document.addEventListener("DOMContentLoaded", () => {
       perfilNome,
       estaConcluida: false,
       concluidaEm: null,
+      status: 'ATIVA',
       reservas: [],
     });
     renderMetas();
   }
 
+  async function editarMeta(meta) {
+    const novoNome = prompt('Novo nome da meta:', meta.nome);
+    if (!novoNome) return;
+    
+    const novoValor = parseFloat(prompt('Novo valor alvo:', meta.valorAlvo));
+    if (isNaN(novoValor) || novoValor <= 0) {
+      alert('Valor inválido');
+      return;
+    }
+    
+    const novaData = prompt('Nova data limite (YYYY-MM-DD):', meta.dataLimite.split('T')[0]);
+    if (!novaData) return;
+    
+    try {
+      const response = await fetch(`/api/meta/meta/${meta.id}/editar`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nome: novoNome,
+          valor_alvo: novoValor,
+          data_limite: novaData
+        })
+      });
+      
+      if (!response.ok) {
+        const erro = await response.json();
+        throw new Error(erro.erro || 'Erro ao editar meta');
+      }
+      
+      showFeedback('Meta editada com sucesso!', 'success');
+      carregarMetas();
+    } catch (error) {
+      console.error('Erro ao editar meta:', error);
+      showFeedback(error.message, 'error');
+    }
+  }
+
+  async function pausarMeta(idMeta) {
+    if (!confirm('Tem certeza que deseja pausar esta meta?')) return;
+    
+    try {
+      const response = await fetch(`/api/meta/meta/${idMeta}/pausar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (!response.ok) {
+        const erro = await response.json();
+        throw new Error(erro.erro || 'Erro ao pausar meta');
+      }
+      
+      showFeedback('Meta pausada com sucesso!', 'success');
+      carregarMetas();
+    } catch (error) {
+      console.error('Erro ao pausar meta:', error);
+      showFeedback(error.message, 'error');
+    }
+  }
+
+  async function retomarMeta(idMeta) {
+    try {
+      const response = await fetch(`/api/meta/meta/${idMeta}/retomar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (!response.ok) {
+        const erro = await response.json();
+        throw new Error(erro.erro || 'Erro ao retomar meta');
+      }
+      
+      showFeedback('Meta retomada com sucesso!', 'success');
+      carregarMetas();
+    } catch (error) {
+      console.error('Erro ao retomar meta:', error);
+      showFeedback(error.message, 'error');
+    }
+  }
+
+  async function cancelarMeta(meta) {
+    const acaoFundos = prompt(
+      `O que deseja fazer com os ${formatCurrency(meta.valorAtual)} já economizados?\n\n` +
+      'Digite "manter" para manter o valor na meta (arquivada)\n' +
+      'Digite "liberar" para liberar o valor\n' +
+      'Digite "realocar" para realocar para outra meta'
+    );
+    
+    if (!acaoFundos || !['manter', 'liberar', 'realocar'].includes(acaoFundos)) {
+      alert('Ação inválida');
+      return;
+    }
+    
+    let idMetaDestino = null;
+    if (acaoFundos === 'realocar') {
+      // Carregar metas disponíveis para realocação
+      const metasResponse = await fetch('/api/data/metas');
+      const todasMetas = await metasResponse.json();
+      const metasDisponiveis = todasMetas.filter(m => 
+        m.id !== meta.id && m.status === 'ATIVA'
+      );
+      
+      if (metasDisponiveis.length === 0) {
+        alert('Não há metas ativas disponíveis para realocação');
+        return;
+      }
+      
+      const metaDestinoNome = prompt(
+        'Digite o nome exato da meta destino:\n' +
+        metasDisponiveis.map(m => m.nome).join('\n')
+      );
+      
+      const metaDestino = metasDisponiveis.find(m => m.nome === metaDestinoNome);
+      if (!metaDestino) {
+        alert('Meta destino não encontrada');
+        return;
+      }
+      
+      idMetaDestino = metaDestino.id;
+    }
+    
+    if (!confirm(`Tem certeza que deseja cancelar a meta "${meta.nome}"?`)) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`/api/meta/meta/${meta.id}/cancelar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          acao_fundos: acaoFundos,
+          id_meta_destino: idMetaDestino
+        })
+      });
+      
+      if (!response.ok) {
+        const erro = await response.json();
+        throw new Error(erro.erro || 'Erro ao cancelar meta');
+      }
+      
+      showFeedback('Meta cancelada com sucesso!', 'success');
+      carregarMetas();
+    } catch (error) {
+      console.error('Erro ao cancelar meta:', error);
+      showFeedback(error.message, 'error');
+    }
+  }
+
+  // Event Listeners
   metasContainer?.addEventListener("click", (event) => {
     const action = event.target.dataset?.action;
     if (!action) return;
@@ -514,6 +706,16 @@ document.addEventListener("DOMContentLoaded", () => {
     } else if (action === "excluir-reserva") {
       const reservaId = event.target.dataset.reservaId;
       abrirModalExclusao(metaId, reservaId);
+    } else if (action === "editar-meta") {
+      const meta = metasState.get(metaId);
+      if (meta) editarMeta(meta);
+    } else if (action === "pausar-meta") {
+      pausarMeta(metaId);
+    } else if (action === "retomar-meta") {
+      retomarMeta(metaId);
+    } else if (action === "cancelar-meta") {
+      const meta = metasState.get(metaId);
+      if (meta) cancelarMeta(meta);
     }
   });
 
@@ -750,6 +952,7 @@ document.addEventListener("DOMContentLoaded", () => {
     sugestoesCard?.classList.remove("hidden");
   }
 
+  // Inicialização
   carregarPerfis();
   carregarMetas();
 });

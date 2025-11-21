@@ -21,6 +21,7 @@ class Meta:
     id_perfil: str | None = None
     valor_atual: float = 0.0
     concluida_em: datetime | None = None
+    finalizada_em: datetime | None = None
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
     def __post_init__(self):
@@ -28,11 +29,24 @@ class Meta:
             raise ValueError("Nome da meta é obrigatório.")
         if self.valor_alvo <= 0:
             raise ValueError("Valor alvo deve ser maior que zero.")
-        if self.data_limite <= datetime.now():
+        # validação pela data (ignorando horário)
+        if self.data_limite.date() <= datetime.now().date():
             raise ValueError("Data limite deve ser futura.")
         if self.valor_atual < 0:
             raise ValueError("Valor atual não pode ser negativo.")
         self._atualizar_status()
+
+    def concluir_manual(self):
+        """Marca a meta como concluída manualmente."""
+        if self.concluida_em is None:
+            self.concluida_em = datetime.now()
+            print(f"DEBUG: Meta {self.id} concluída em {self.concluida_em}")
+
+    def finalizar(self):
+        """Marca a meta como finalizada após registro de uso."""
+        if self.finalizada_em is None:
+            self.finalizada_em = datetime.now()
+            print(f"DEBUG: Meta {self.id} finalizada em {self.finalizada_em}")
 
     def registrar_aporte(self, valor: float):
         """Incrementa o valor atual da meta com validação."""
@@ -51,10 +65,14 @@ class Meta:
     def esta_concluida(self) -> bool:
         return self.concluida_em is not None
 
+    def esta_finalizada(self) -> bool:
+        return self.finalizada_em is not None
+
     def _atualizar_status(self) -> None:
         if self.valor_atual >= self.valor_alvo:
             if self.concluida_em is None:
                 self.concluida_em = datetime.now()
+                print(f"DEBUG: Meta {self.id} concluída automaticamente")
         else:
             self.concluida_em = None
 

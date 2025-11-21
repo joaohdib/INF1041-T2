@@ -83,6 +83,11 @@ class IMetaRepository(ABC):
     def get_by_id(self, id_meta: str) -> Meta | None:
         pass
 
+    @abstractmethod
+    def sum_reservas(self, id_meta: str) -> float:
+        """Retorna o total de reservas associadas a uma meta."""
+        pass
+
 
 class IReservaRepository(ABC):
     @abstractmethod
@@ -146,4 +151,26 @@ class IMapeamentoCSVRepository(ABC):
 
     @abstractmethod
     def exists_nome(self, id_usuario: str, nome: str) -> bool:
+        pass
+
+
+class IMetaUsoRepository(ABC):
+    @abstractmethod
+    def add_uso(self, id_meta: str, id_transacao: str, valor: float) -> Any:
+        """Registra um uso de meta vinculado a uma transação."""
+        pass
+
+    @abstractmethod
+    def get_transacao(self, id_transacao: str) -> Any:
+        """Busca a transação usada em um registro de uso de meta."""
+        pass
+
+    @abstractmethod
+    def sum_uso_por_meta(self, id_meta: str) -> float:
+        """Soma o valor total já utilizado de uma meta."""
+        pass
+
+    @abstractmethod
+    def get_usos_por_meta(self, id_meta: str) -> List[Any]:
+        """Lista todos os usos associados a uma meta."""
         pass

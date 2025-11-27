@@ -1,4 +1,4 @@
-import { api } from "./api.js";
+import { api, API_URL } from "./api.js";
 
 document.addEventListener("DOMContentLoaded", () => {
   const form = document.getElementById("form-criar-meta");
@@ -24,6 +24,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const btnIrCriarMeta = document.getElementById("btn-ir-criar-meta");
   const metasConcluidasCard = document.getElementById("metas-concluidas-card");
   const metasConcluidasContainer = document.getElementById("metas-concluidas");
+  const metasArquivadasCard = document.getElementById("metas-arquivadas-card");
+  const metasArquivadasContainer = document.getElementById("metas-arquivadas");
 
   const modalReserva = document.getElementById("modal-reserva");
   const modalReservaTitulo = document.getElementById("modal-reserva-titulo");
@@ -45,9 +47,108 @@ document.addEventListener("DOMContentLoaded", () => {
     "btn-confirmar-reserva-exclusao"
   );
 
+  const modalDetalhesMeta = document.getElementById("modal-detalhes-meta");
+  const detalhesMetaNome = document.getElementById("detalhes-meta-nome");
+  const detalhesMetaStatus = document.getElementById("detalhes-meta-status");
+  const detalhesMetaEconomizado = document.getElementById(
+    "detalhes-meta-economizado"
+  );
+  const detalhesMetaUtilizado = document.getElementById(
+    "detalhes-meta-utilizado"
+  );
+  const detalhesMetaSaldo = document.getElementById("detalhes-meta-saldo");
+  const detalhesMetaDiferenca = document.getElementById(
+    "detalhes-meta-diferenca"
+  );
+  const detalhesMetaObservacao = document.getElementById(
+    "detalhes-meta-observacao"
+  );
+  const btnFecharDetalhesMeta = document.getElementById(
+    "btn-fechar-detalhes-meta"
+  );
+  const btnRegistrarUsoMeta = document.getElementById(
+    "btn-registrar-uso-meta"
+  );
+  const btnLiberarSaldoMeta = document.getElementById("btn-liberar-saldo-meta");
+
+  const modalRegistrarUso = document.getElementById("modal-registrar-uso");
+  const formRegistrarUso = document.getElementById("form-registrar-uso");
+  const registrarUsoResumo = document.getElementById("registrar-uso-resumo");
+  const registrarUsoSelect = document.getElementById("registrar-uso-transacao");
+  const registrarUsoSemTransacoes = document.getElementById(
+    "registrar-uso-sem-transacoes"
+  );
+  const registrarUsoEconomizado = document.getElementById(
+    "registrar-uso-economizado"
+  );
+  const registrarUsoUtilizado = document.getElementById(
+    "registrar-uso-utilizado"
+  );
+  const registrarUsoSaldo = document.getElementById("registrar-uso-saldo");
+  const registrarUsoDiferenca = document.getElementById(
+    "registrar-uso-diferenca"
+  );
+  const registrarUsoPanel = document.getElementById("registrar-uso-panel");
+  const btnCancelarRegistrarUso = document.getElementById(
+    "btn-cancelar-registrar-uso"
+  );
+  const btnConfirmarRegistrarUso = document.getElementById(
+    "btn-confirmar-registrar-uso"
+  );
+
+  const modalEditarMeta = document.getElementById("modal-editar-meta");
+  const formEditarMeta = document.getElementById("form-editar-meta");
+  const editarMetaIdInput = document.getElementById("editar-meta-id");
+  const editarMetaNomeInput = document.getElementById("editar-meta-nome");
+  const editarMetaValorInput = document.getElementById("editar-meta-valor");
+  const editarMetaDataInput = document.getElementById("editar-meta-data");
+  const editarMetaProgresso = document.getElementById("editar-meta-progresso");
+  const btnCancelarEdicaoMeta = document.getElementById(
+    "btn-cancelar-edicao-meta"
+  );
+  const btnSalvarEdicaoMeta = document.getElementById("btn-salvar-edicao-meta");
+
+  const modalConfirmMeta = document.getElementById("modal-confirm-meta");
+  const confirmMetaTitle = document.getElementById("confirm-meta-title");
+  const confirmMetaMessage = document.getElementById("confirm-meta-message");
+  const btnCancelarConfirmMeta = document.getElementById(
+    "btn-cancelar-confirm-meta"
+  );
+  const btnConfirmMeta = document.getElementById("btn-confirm-meta");
+
+  const modalCancelarMeta = document.getElementById("modal-cancelar-meta");
+  const formCancelarMeta = document.getElementById("form-cancelar-meta");
+  const cancelarMetaResumo = document.getElementById("cancelar-meta-resumo");
+  const cancelarMetaDestinoGroup = document.getElementById(
+    "cancelar-meta-destino-group"
+  );
+  const cancelarMetaDestinoSelect = document.getElementById(
+    "cancelar-meta-destino"
+  );
+  const cancelarMetaSemOpcoes = document.getElementById(
+    "cancelar-meta-sem-opcoes"
+  );
+  const btnCancelarCancelamentoMeta = document.getElementById(
+    "btn-cancelar-cancelamento-meta"
+  );
+  const btnConfirmarCancelamentoMeta = document.getElementById(
+    "btn-confirmar-cancelamento-meta"
+  );
+
+  const confettiContainer = document.getElementById("confetti-container");
+
   const metasState = new Map();
+  const metaDetalhesCache = new Map();
   let reservaModalMode = "create";
   let reservaParaExcluir = null;
+  let metaEmEdicao = null;
+  let confirmMetaCallback = null;
+  let metaParaCancelar = null;
+  let metaEmDetalhe = null;
+  let metaParaRegistrarUso = null;
+  let transacoesCache = null;
+  let confettiTimeout = null;
+  let detalhesMetaAtual = null;
 
   const currencyFormatter = new Intl.NumberFormat("pt-BR", {
     style: "currency",
@@ -99,6 +200,16 @@ document.addEventListener("DOMContentLoaded", () => {
     return dateTimeFormatter.format(date);
   }
 
+  function calcularProgresso(valorAtual, valorAlvo) {
+    if (!valorAlvo || Number(valorAlvo) === 0) {
+      return 0;
+    }
+    return Math.min(
+      100,
+      Math.max(0, Math.round((Number(valorAtual) / Number(valorAlvo)) * 100))
+    );
+  }
+
   function normalizarReserva(reserva) {
     return {
       id: reserva.id,
@@ -111,17 +222,47 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function atualizarEstadoMeta(metaId, metaPayload, fallbackPerfilNome = "") {
-    if (!metaId || !metaPayload) return;
+    if (!metaId || !metaPayload) return null;
 
+    const jaExistia = metasState.has(metaId);
     const existente = metasState.get(metaId) || { reservas: [] };
+    const statusAnterior = (existente.status || "ATIVA").toString().toUpperCase();
+    const valorAtualBruto =
+      metaPayload.valor_atual ?? existente.valorAtual ?? existente.valor_atual ?? 0;
+    const valorAlvoBruto =
+      metaPayload.valor_alvo ?? existente.valorAlvo ?? existente.valor_alvo ?? 0;
+    const valorAtual = Number(valorAtualBruto) || 0;
+    const valorAlvo = Number(valorAlvoBruto) || 0;
+    const statusNormalizado = (metaPayload.status || existente.status || "ATIVA")
+      .toString()
+      .toUpperCase();
+    const progressoPercentual =
+      metaPayload.progresso_percentual ??
+      existente.progressoPercentual ??
+      calcularProgresso(valorAtual, valorAlvo);
+    const finalizadaEm =
+      metaPayload.finalizada_em || existente.finalizadaEm || null;
+    const finalizadaFlag = Boolean(
+      metaPayload.finalizada ?? existente.finalizada ?? (finalizadaEm !== null)
+    );
+    const valorUtilizado = Math.abs(
+      Number(
+        metaPayload.valor_utilizado ??
+          existente.valorUtilizado ??
+          existente.valor_utilizado ??
+          0
+      ) || 0
+    );
+    const saldoRestante = Math.max(0, valorAtual - valorUtilizado);
+    const acabouDeConcluir =
+      jaExistia && statusNormalizado === "CONCLUIDA" && statusAnterior !== "CONCLUIDA";
 
     const metaAtualizada = {
       id: metaId,
       nome: metaPayload.nome || existente.nome || "Meta",
-      valorAlvo: metaPayload.valor_alvo ?? existente.valorAlvo ?? 0,
-      valorAtual: metaPayload.valor_atual ?? existente.valorAtual ?? 0,
-      progressoPercentual:
-        metaPayload.progresso_percentual ?? existente.progressoPercentual ?? 0,
+      valorAlvo,
+      valorAtual,
+      progressoPercentual,
       dataLimite:
         metaPayload.data_limite ||
         existente.dataLimite ||
@@ -132,11 +273,17 @@ document.addEventListener("DOMContentLoaded", () => {
         metaPayload.esta_concluida ?? existente.estaConcluida
       ),
       concluidaEm: metaPayload.concluida_em || existente.concluidaEm || null,
-      status: metaPayload.status || existente.status || "ATIVA",
+      status: statusNormalizado,
       reservas: existente.reservas || [],
+      finalizadaEm,
+      finalizada: finalizadaFlag,
+      valorUtilizado,
+      saldoRestante,
+      foiConcluidaAgora: acabouDeConcluir,
     };
 
     metasState.set(metaId, metaAtualizada);
+    return metaAtualizada;
   }
 
   function registrarReservaNaMeta(metaId, reservaData) {
@@ -171,6 +318,435 @@ document.addEventListener("DOMContentLoaded", () => {
     metasState.set(metaId, { ...meta, reservas: reservasFiltradas });
   }
 
+  function dispararConfete() {
+    if (!confettiContainer) return;
+
+    if (confettiTimeout) {
+      clearTimeout(confettiTimeout);
+      confettiTimeout = null;
+    }
+
+    confettiContainer.innerHTML = "";
+    confettiContainer.classList.remove("hidden");
+
+    const cores = ["#3b82f6", "#f97316", "#22c55e", "#a855f7", "#eab308"];
+    const quantidade = 32;
+
+    for (let i = 0; i < quantidade; i += 1) {
+      const piece = document.createElement("span");
+      piece.className = "confetti-piece";
+      piece.style.left = `${Math.random() * 100}%`;
+      piece.style.backgroundColor = cores[i % cores.length];
+      piece.style.animationDelay = `${Math.random() * 0.3}s`;
+      piece.style.transform = `rotate(${Math.random() * 360}deg)`;
+      confettiContainer.appendChild(piece);
+    }
+
+    confettiTimeout = setTimeout(() => {
+      confettiContainer.classList.add("hidden");
+      confettiContainer.innerHTML = "";
+      confettiTimeout = null;
+    }, 1900);
+  }
+
+  function celebrarConclusao(meta) {
+    if (!meta) return;
+    dispararConfete();
+    showFeedback(
+      `Meta "${meta.nome}" concluída! Parabéns pelo objetivo alcançado!`,
+      "success"
+    );
+  }
+
+  async function carregarDetalhesMeta(metaId, useCache = true) {
+    if (!metaId) return null;
+    if (!useCache) {
+      metaDetalhesCache.delete(metaId);
+    }
+    if (useCache && metaDetalhesCache.has(metaId)) {
+      const cached = metaDetalhesCache.get(metaId);
+      atualizarEstadoMeta(metaId, {
+        valor_alvo: cached.valor_alvo,
+        valor_atual: cached.valor_economizado,
+        status: cached.status,
+        concluida_em: cached.concluida_em,
+        finalizada_em: cached.finalizada_em,
+        esta_concluida: cached.concluida,
+        finalizada: cached.finalizada,
+        valor_utilizado: cached.valor_utilizado,
+        saldo_restante: cached.saldo_restante,
+      });
+      return cached;
+    }
+
+    const detalhes = await api.obterDetalhesMeta(metaId);
+    metaDetalhesCache.set(metaId, detalhes);
+    atualizarEstadoMeta(metaId, {
+      nome: detalhes.nome,
+      valor_alvo: detalhes.valor_alvo,
+      valor_atual: detalhes.valor_economizado,
+      status: detalhes.status,
+      concluida_em: detalhes.concluida_em,
+      finalizada_em: detalhes.finalizada_em,
+      esta_concluida: detalhes.concluida,
+      finalizada: detalhes.finalizada,
+      valor_utilizado: detalhes.valor_utilizado,
+      saldo_restante: detalhes.saldo_restante,
+    });
+    return detalhes;
+  }
+
+  function calcularDiferenca(economizado, utilizado) {
+    return Number(economizado || 0) - Number(utilizado || 0);
+  }
+
+  function aplicarClasseDiferenca(elemento, diferenca) {
+    if (!elemento) return;
+    elemento.classList.remove("meta-negative", "meta-positive");
+    if (diferenca < 0) {
+      elemento.classList.add("meta-negative");
+    } else if (diferenca > 0) {
+      elemento.classList.add("meta-positive");
+    }
+  }
+
+  function preencherDetalhesMetaView(meta, detalhes) {
+    if (!meta || !detalhes) return;
+
+    detalhesMetaNome.textContent = meta.nome;
+
+    const statusMensagem = detalhes.finalizada
+      ? `Finalizada${detalhes.finalizada_em ? ` em ${formatDateValue(detalhes.finalizada_em)}` : ""}`
+      : `Concluída${detalhes.concluida_em ? ` em ${formatDateValue(detalhes.concluida_em)}` : ""}`;
+    detalhesMetaStatus.textContent = statusMensagem;
+
+    const economizadoValor = Number(detalhes.valor_economizado || 0);
+    const utilizadoValor = Math.abs(Number(detalhes.valor_utilizado || 0));
+    const saldoCalculado = Math.max(0, economizadoValor - utilizadoValor);
+
+    detalhesMetaEconomizado.textContent = formatCurrency(economizadoValor);
+    detalhesMetaUtilizado.textContent = formatCurrency(utilizadoValor);
+    detalhesMetaSaldo.textContent = formatCurrency(saldoCalculado);
+    const diferenca = calcularDiferenca(economizadoValor, utilizadoValor);
+    detalhesMetaDiferenca.textContent = formatCurrency(diferenca);
+    aplicarClasseDiferenca(detalhesMetaDiferenca, diferenca);
+
+    if (detalhes.finalizada) {
+      detalhesMetaObservacao.textContent =
+        "Meta finalizada. O histórico ficará disponível nas metas arquivadas.";
+    } else {
+      detalhesMetaObservacao.textContent =
+        "Você pode registrar o uso do valor para vincular despesas ou liberar o saldo restante.";
+    }
+
+    if (detalhes.finalizada) {
+      btnRegistrarUsoMeta?.classList.add("hidden");
+      btnLiberarSaldoMeta?.classList.add("hidden");
+    } else {
+      btnRegistrarUsoMeta?.classList.remove("hidden");
+      btnLiberarSaldoMeta?.classList.remove("hidden");
+      btnLiberarSaldoMeta.disabled = saldoCalculado <= 0;
+    }
+  }
+
+  function preencherPainelUso(detalhes, transacao = null) {
+    if (!detalhes) return;
+    const economizado = Number(detalhes.valor_economizado || 0);
+    const utilizadoAtual = Math.abs(Number(detalhes.valor_utilizado || 0));
+    const valorTransacao = transacao ? Math.abs(Number(transacao.valor || 0)) : 0;
+    const utilizadoPrevisto = utilizadoAtual + valorTransacao;
+    const saldoPrevisto = economizado - utilizadoPrevisto;
+    const diferenca = calcularDiferenca(economizado, utilizadoPrevisto);
+
+    registrarUsoEconomizado.textContent = formatCurrency(economizado);
+    registrarUsoUtilizado.textContent = formatCurrency(utilizadoPrevisto);
+    registrarUsoSaldo.textContent = formatCurrency(saldoPrevisto);
+    registrarUsoDiferenca.textContent = formatCurrency(diferenca);
+    aplicarClasseDiferenca(registrarUsoDiferenca, diferenca);
+  }
+
+  async function carregarTransacoes(force = false) {
+    if (!force && Array.isArray(transacoesCache)) {
+      return transacoesCache;
+    }
+    const transacoes = await api.getTransacoes();
+    transacoesCache = Array.isArray(transacoes)
+      ? transacoes.map((transacao) => ({
+          ...transacao,
+          valor: Math.abs(Number(transacao.valor || 0)),
+        }))
+      : [];
+    return transacoesCache;
+  }
+
+  function preencherSelectTransacoes(transacoes) {
+    if (!registrarUsoSelect) return [];
+    registrarUsoSelect.innerHTML = "";
+
+    const despesas = (transacoes || []).filter(
+      (item) => (item.tipo || "").toUpperCase() === "DESPESA"
+    );
+
+    if (despesas.length === 0) {
+      registrarUsoSelect.disabled = true;
+      registrarUsoSemTransacoes?.classList.remove("hidden");
+      btnConfirmarRegistrarUso.disabled = true;
+      return [];
+    }
+
+    registrarUsoSemTransacoes?.classList.add("hidden");
+    registrarUsoSelect.disabled = false;
+
+    const defaultOption = document.createElement("option");
+    defaultOption.value = "";
+    defaultOption.textContent = "Selecione uma despesa";
+    registrarUsoSelect.appendChild(defaultOption);
+
+    despesas
+      .sort(
+        (a, b) => new Date(b.data).getTime() - new Date(a.data).getTime()
+      )
+      .forEach((transacao) => {
+        const option = document.createElement("option");
+        option.value = transacao.id;
+        option.dataset.valor = transacao.valor;
+        option.dataset.descricao = transacao.descricao || "Despesa";
+        option.textContent = `${transacao.descricao || "Despesa"} • ${formatCurrency(
+          Math.abs(transacao.valor)
+        )} • ${formatDateValue(transacao.data)}`;
+        registrarUsoSelect.appendChild(option);
+      });
+
+    btnConfirmarRegistrarUso.disabled = true;
+    return despesas;
+  }
+
+  async function abrirDetalhesMeta(meta) {
+    if (!meta || !modalDetalhesMeta) return;
+    try {
+      const detalhes = await carregarDetalhesMeta(meta.id, false);
+      detalhesMetaAtual = detalhes;
+      metaEmDetalhe = metasState.get(meta.id) || meta;
+      preencherDetalhesMetaView(metaEmDetalhe, detalhes);
+      modalDetalhesMeta.classList.remove("hidden");
+    } catch (error) {
+      console.error(error);
+      showFeedback(
+        error.message || "Não foi possível carregar os detalhes da meta.",
+        "error"
+      );
+    }
+  }
+
+  function fecharModalDetalhesMeta() {
+    if (!modalDetalhesMeta) return;
+    modalDetalhesMeta.classList.add("hidden");
+    metaEmDetalhe = null;
+    detalhesMetaAtual = null;
+  }
+
+  async function abrirModalRegistrarUso(meta) {
+    if (!meta || !modalRegistrarUso) return;
+    try {
+      const detalhes = await carregarDetalhesMeta(meta.id, false);
+      detalhesMetaAtual = detalhes;
+      metaParaRegistrarUso = metasState.get(meta.id) || meta;
+
+      registrarUsoResumo.textContent = `Meta "${meta.nome}" • ${formatCurrency(
+        detalhes.valor_economizado
+      )} economizados`;
+
+      const transacoes = await carregarTransacoes();
+      const despesas = preencherSelectTransacoes(transacoes);
+      preencherPainelUso(detalhes);
+
+      if (despesas.length === 0) {
+        btnConfirmarRegistrarUso.disabled = true;
+      }
+
+      modalRegistrarUso.classList.remove("hidden");
+    } catch (error) {
+      console.error(error);
+      showFeedback(
+        error.message || "Não foi possível carregar as transações.",
+        "error"
+      );
+    }
+  }
+
+  function fecharModalRegistrarUso() {
+    if (!modalRegistrarUso) return;
+    modalRegistrarUso.classList.add("hidden");
+    formRegistrarUso?.reset();
+    metaParaRegistrarUso = null;
+    detalhesMetaAtual = null;
+    registrarUsoSemTransacoes?.classList.add("hidden");
+    btnConfirmarRegistrarUso.disabled = true;
+    btnConfirmarRegistrarUso.textContent = "Registrar uso";
+  }
+
+  function abrirModalEditar(meta) {
+    if (!modalEditarMeta || !formEditarMeta) return;
+    metaEmEdicao = meta;
+    editarMetaIdInput.value = meta.id;
+    editarMetaNomeInput.value = meta.nome;
+    editarMetaValorInput.value = Number(meta.valorAlvo || 0).toFixed(2);
+    const dataLimiteIso = meta.dataLimite
+      ? new Date(meta.dataLimite).toISOString().split("T")[0]
+      : "";
+    const minDate = new Date();
+    minDate.setHours(0, 0, 0, 0);
+    minDate.setDate(minDate.getDate() + 1);
+    editarMetaDataInput.min = minDate.toISOString().split("T")[0];
+    editarMetaDataInput.value = dataLimiteIso;
+
+    const progressoAtual = calcularProgresso(meta.valorAtual, meta.valorAlvo);
+    editarMetaProgresso.textContent = `Progresso atual: ${formatCurrency(
+      meta.valorAtual
+    )} (${progressoAtual}%)`;
+
+    btnSalvarEdicaoMeta.disabled = false;
+    btnSalvarEdicaoMeta.textContent = "Salvar alterações";
+
+    modalEditarMeta.classList.remove("hidden");
+    setTimeout(() => editarMetaNomeInput.focus(), 0);
+  }
+
+  function fecharModalEditar() {
+    if (!modalEditarMeta) return;
+    modalEditarMeta.classList.add("hidden");
+    formEditarMeta?.reset();
+    metaEmEdicao = null;
+  }
+
+  function setConfirmButtonVariant(variant = "primary") {
+    if (!btnConfirmMeta) return;
+    const variants = ["btn-primary", "btn-warning", "btn-danger", "btn-success"];
+    btnConfirmMeta.classList.remove(...variants);
+    switch (variant) {
+      case "warning":
+        btnConfirmMeta.classList.add("btn-warning");
+        break;
+      case "danger":
+        btnConfirmMeta.classList.add("btn-danger");
+        break;
+      case "success":
+        btnConfirmMeta.classList.add("btn-success");
+        break;
+      default:
+        btnConfirmMeta.classList.add("btn-primary");
+        break;
+    }
+  }
+
+  function abrirModalConfirmacao({
+    title,
+    message,
+    confirmLabel = "Confirmar",
+    variant = "primary",
+    onConfirm,
+  }) {
+    if (!modalConfirmMeta) return;
+    confirmMetaTitle.textContent = title;
+    confirmMetaMessage.textContent = message;
+    btnConfirmMeta.textContent = confirmLabel;
+    setConfirmButtonVariant(variant);
+    confirmMetaCallback = onConfirm;
+    btnConfirmMeta.disabled = false;
+    modalConfirmMeta.classList.remove("hidden");
+  }
+
+  function fecharModalConfirmacao() {
+    if (!modalConfirmMeta) return;
+    modalConfirmMeta.classList.add("hidden");
+    confirmMetaCallback = null;
+    btnConfirmMeta.textContent = "Confirmar";
+    setConfirmButtonVariant("primary");
+  }
+
+  function atualizarVisibilidadeRealocacao(acao) {
+    if (!cancelarMetaDestinoGroup || !cancelarMetaDestinoSelect) return;
+    if (acao === "realocar") {
+      cancelarMetaDestinoGroup.classList.remove("hidden");
+      if (!cancelarMetaDestinoSelect.disabled) {
+        cancelarMetaDestinoSelect.focus();
+      }
+    } else {
+      cancelarMetaDestinoGroup.classList.add("hidden");
+      cancelarMetaDestinoSelect.value = "";
+    }
+  }
+
+  function preencherMetasDestino(metaAtual) {
+    if (!cancelarMetaDestinoSelect) return;
+    cancelarMetaDestinoSelect.innerHTML = "";
+    const metasDisponiveis = Array.from(metasState.values()).filter(
+      (meta) => meta.id !== metaAtual.id && meta.status === "ATIVA"
+    );
+
+    cancelarMetaDestinoSelect.disabled = false;
+
+    if (metasDisponiveis.length === 0) {
+      cancelarMetaDestinoSelect.innerHTML = "";
+      const option = document.createElement("option");
+      option.value = "";
+      option.textContent = "Nenhuma meta ativa disponível";
+      cancelarMetaDestinoSelect.appendChild(option);
+      cancelarMetaDestinoSelect.disabled = true;
+      cancelarMetaSemOpcoes?.classList.remove("hidden");
+      return;
+    }
+
+    cancelarMetaSemOpcoes?.classList.add("hidden");
+
+    const defaultOption = document.createElement("option");
+    defaultOption.value = "";
+    defaultOption.textContent = "Selecione uma meta";
+    cancelarMetaDestinoSelect.appendChild(defaultOption);
+
+    metasDisponiveis.forEach((meta) => {
+      const option = document.createElement("option");
+      option.value = meta.id;
+      option.textContent = `${meta.nome} • ${formatCurrency(meta.valorAtual)} / ${formatCurrency(
+        meta.valorAlvo
+      )}`;
+      cancelarMetaDestinoSelect.appendChild(option);
+    });
+  }
+
+  function abrirModalCancelar(meta) {
+    if (!modalCancelarMeta || !formCancelarMeta) return;
+    metaParaCancelar = meta;
+    formCancelarMeta.reset();
+    cancelarMetaResumo.textContent = `Meta "${meta.nome}" possui ${formatCurrency(
+      meta.valorAtual
+    )} reservados. Escolha o destino dos fundos.`;
+    preencherMetasDestino(meta);
+
+    const acaoAtual = formCancelarMeta.querySelector(
+      'input[name="cancelar-acao"]:checked'
+    )?.value;
+    atualizarVisibilidadeRealocacao(acaoAtual || "manter");
+
+    btnConfirmarCancelamentoMeta.disabled = false;
+    btnConfirmarCancelamentoMeta.textContent = "Cancelar meta";
+
+    modalCancelarMeta.classList.remove("hidden");
+  }
+
+  function fecharModalCancelar() {
+    if (!modalCancelarMeta) return;
+    modalCancelarMeta.classList.add("hidden");
+    formCancelarMeta?.reset();
+    cancelarMetaDestinoGroup?.classList.add("hidden");
+    if (cancelarMetaDestinoSelect) {
+      cancelarMetaDestinoSelect.value = "";
+      cancelarMetaDestinoSelect.disabled = false;
+    }
+    cancelarMetaSemOpcoes?.classList.add("hidden");
+    metaParaCancelar = null;
+  }
+
   async function carregarPerfis() {
     try {
       const perfis = await api.getPerfis();
@@ -194,9 +770,9 @@ document.addEventListener("DOMContentLoaded", () => {
   async function carregarMetas() {
     if (!metasContainer) return;
     try {
-      const response = await fetch('/api/data/metas');
-      if (!response.ok) throw new Error('Erro ao carregar metas');
-      
+      const response = await fetch(`${API_URL}/data/metas`);
+      if (!response.ok) throw new Error("Não foi possível carregar as metas.");
+
       const metas = await response.json();
       const idsAtivos = new Set();
 
@@ -204,20 +780,32 @@ document.addEventListener("DOMContentLoaded", () => {
         const metaId = meta.id;
         idsAtivos.add(metaId);
         const existente = metasState.get(metaId);
-        metasState.set(metaId, {
-          id: metaId,
-          nome: meta.nome,
-          valorAlvo: meta.valor_alvo,
-          valorAtual: meta.valor_atual,
-          progressoPercentual: meta.progresso_percentual,
-          dataLimite: meta.data_limite,
-          idPerfil: existente?.idPerfil ?? null,
-          perfilNome: existente?.perfilNome || "",
-          estaConcluida: meta.status === 'CONCLUIDA',
-          concluidaEm: meta.concluida_em,
-          status: meta.status,
-          reservas: existente?.reservas || [],
-        });
+        const metaAtualizada = atualizarEstadoMeta(
+          metaId,
+          {
+            nome: meta.nome,
+            valor_alvo: meta.valor_alvo,
+            valor_atual: meta.valor_atual,
+            data_limite: meta.data_limite,
+            id_perfil: meta.id_perfil,
+            status: meta.status,
+            concluida_em: meta.concluida_em,
+            esta_concluida: meta.status === "CONCLUIDA",
+            finalizada_em: meta.finalizada_em,
+            finalizada: Boolean(meta.finalizada_em),
+          },
+          existente?.perfilNome || ""
+        );
+        if (metaAtualizada) {
+          metaAtualizada.foiConcluidaAgora = Boolean(
+            metaAtualizada.foiConcluidaAgora && !metaAtualizada.finalizada
+          );
+          if (metaAtualizada.foiConcluidaAgora) {
+            celebrarConclusao(metaAtualizada);
+            metaAtualizada.foiConcluidaAgora = false;
+            metasState.set(metaId, metaAtualizada);
+          }
+        }
       });
 
       Array.from(metasState.entries()).forEach(([id, meta]) => {
@@ -226,14 +814,6 @@ document.addEventListener("DOMContentLoaded", () => {
           metasState.delete(id);
         }
       });
-
-      if (metasEmpty) {
-        if (metas.length === 0) {
-          metasEmpty.classList.remove("hidden");
-        } else {
-          metasEmpty.classList.add("hidden");
-        }
-      }
 
       renderMetas();
     } catch (error) {
@@ -252,19 +832,27 @@ document.addEventListener("DOMContentLoaded", () => {
     if (metasConcluidasContainer) {
       metasConcluidasContainer.innerHTML = "";
     }
+    if (metasArquivadasContainer) {
+      metasArquivadasContainer.innerHTML = "";
+    }
 
-    const metasAbertas = [];
+    const metasEmAndamento = [];
     const metasFinalizadas = [];
+    const metasArquivadas = [];
 
     metasState.forEach((meta) => {
-      if (meta.status === 'CONCLUIDA' || meta.estaConcluida) {
+      if (!meta) return;
+      const finalizada = Boolean(meta.finalizada || meta.finalizadaEm);
+      if (meta.status === "CANCELADA" || finalizada) {
+        metasArquivadas.push(meta);
+      } else if (meta.status === "CONCLUIDA" || meta.estaConcluida) {
         metasFinalizadas.push(meta);
       } else {
-        metasAbertas.push(meta);
+        metasEmAndamento.push(meta);
       }
     });
 
-    metasAbertas.sort(
+    metasEmAndamento.sort(
       (a, b) =>
         new Date(a.dataLimite).getTime() - new Date(b.dataLimite).getTime()
     );
@@ -273,13 +861,18 @@ document.addEventListener("DOMContentLoaded", () => {
       const dataB = new Date(b.concluidaEm || b.dataLimite).getTime();
       return dataB - dataA;
     });
+    metasArquivadas.sort((a, b) => {
+      const dataA = new Date(a.dataLimite).getTime();
+      const dataB = new Date(b.dataLimite).getTime();
+      return dataB - dataA;
+    });
 
-    if (metasAbertas.length === 0) {
+    if (metasEmAndamento.length === 0) {
       metasEmpty?.classList.remove("hidden");
     } else {
       metasEmpty?.classList.add("hidden");
-      metasAbertas.forEach((meta) => {
-        metasContainer.appendChild(buildMetaCard(meta, false));
+      metasEmAndamento.forEach((meta) => {
+        metasContainer.appendChild(buildMetaCard(meta, false, false));
       });
     }
 
@@ -289,26 +882,55 @@ document.addEventListener("DOMContentLoaded", () => {
       } else {
         metasConcluidasCard.classList.remove("hidden");
         metasFinalizadas.forEach((meta) => {
-          metasConcluidasContainer.appendChild(buildMetaCard(meta, true));
+          metasConcluidasContainer.appendChild(
+            buildMetaCard(meta, true, false)
+          );
+        });
+      }
+    }
+
+    if (metasArquivadasCard) {
+      if (metasArquivadas.length === 0) {
+        metasArquivadasCard.classList.add("hidden");
+      } else {
+        metasArquivadasCard.classList.remove("hidden");
+        metasArquivadas.forEach((meta) => {
+          const concluida = meta.status === "CONCLUIDA" || meta.estaConcluida;
+          metasArquivadasContainer.appendChild(
+            buildMetaCard(meta, concluida, true)
+          );
         });
       }
     }
   }
 
-  function buildMetaCard(meta, concluida) {
+  function buildMetaCard(meta, concluida, arquivada = false) {
     const progresso = Math.min(
       100,
       Math.max(0, Math.round(meta.progressoPercentual || 0))
     );
     const perfilLabel = meta.perfilNome || "Não vinculado";
-    const deadlineLabel =
-      concluida && meta.concluidaEm
-        ? `Concluída em ${formatDateValue(meta.concluidaEm)}`
-        : `Até ${formatDateValue(meta.dataLimite)}`;
+    let deadlineLabel = `Até ${formatDateValue(meta.dataLimite)}`;
+    if (meta.finalizadaEm) {
+      deadlineLabel = `Finalizada em ${formatDateValue(meta.finalizadaEm)}`;
+    } else if (concluida && meta.concluidaEm) {
+      deadlineLabel = `Concluída em ${formatDateValue(meta.concluidaEm)}`;
+    }
     
     const card = document.createElement("article");
-    card.className = concluida ? "meta-card meta-card-concluida" : "meta-card";
+    if (concluida) {
+      card.className = "meta-card meta-card-concluida";
+    } else if (arquivada) {
+      card.className = "meta-card meta-card-arquivada";
+    } else {
+      card.className = "meta-card";
+    }
     card.dataset.metaId = meta.id;
+
+    const statusTexto = meta.finalizada ? "FINALIZADA" : meta.status;
+    const statusClass = (meta.finalizada ? "FINALIZADA" : meta.status || "ATIVA")
+      .toString()
+      .toLowerCase();
 
     card.innerHTML = `
             <div class="meta-card-header">
@@ -318,7 +940,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 </div>
                 <div style="text-align: right;">
                     <span class="meta-deadline">${deadlineLabel}</span>
-                    <span class="meta-status ${meta.status.toLowerCase()}">${meta.status}</span>
+                    <span class="meta-status ${statusClass}">${statusTexto}</span>
                 </div>
             </div>
             <div class="meta-progress-bar">
@@ -336,7 +958,7 @@ document.addEventListener("DOMContentLoaded", () => {
     actionsRow.className = "meta-actions-row";
 
     // Botão de reserva (sempre presente para metas não concluídas e não canceladas)
-    if (!concluida && meta.status !== 'CANCELADA') {
+    if (!concluida && !arquivada && meta.status === "ATIVA") {
       const reservaButton = document.createElement("button");
       reservaButton.type = "button";
       reservaButton.className = "btn-primary btn-small";
@@ -346,14 +968,14 @@ document.addEventListener("DOMContentLoaded", () => {
       actionsRow.appendChild(reservaButton);
     }
 
-    // Adicionar botões de gestão específicos do status
-    adicionarBotoesGestaoMeta(actionsRow, meta);
+  // Adicionar botões de gestão específicos do status
+  adicionarBotoesGestaoMeta(actionsRow, meta, arquivada, concluida);
     
     card.appendChild(actionsRow);
 
     card.innerHTML += `
-            <p class="meta-reservas-title">Reservas registradas</p>
-        `;
+        <p class="meta-reservas-title">Reservas registradas</p>
+      `;
 
     const reservasList = document.createElement("ul");
     reservasList.className = "meta-reservas-list";
@@ -375,33 +997,105 @@ document.addEventListener("DOMContentLoaded", () => {
     return card;
   }
 
-  function adicionarBotoesGestaoMeta(actionsRow, meta) {
-    if (meta.status === 'ATIVA') {
-      // Botões para meta ativa
-      actionsRow.innerHTML += `
-        <button type="button" class="btn-secondary btn-small" data-action="editar-meta" data-meta-id="${meta.id}">Editar</button>
-        <button type="button" class="btn-warning btn-small" data-action="pausar-meta" data-meta-id="${meta.id}">Pausar</button>
-        <button type="button" class="btn-danger btn-small" data-action="cancelar-meta" data-meta-id="${meta.id}">Cancelar</button>
-      `;
-    } else if (meta.status === 'PAUSADA') {
-      // Botões para meta pausada
-      actionsRow.innerHTML += `
-        <button type="button" class="btn-secondary btn-small" data-action="editar-meta" data-meta-id="${meta.id}">Editar</button>
-        <button type="button" class="btn-success btn-small" data-action="retomar-meta" data-meta-id="${meta.id}">Retomar</button>
-        <button type="button" class="btn-danger btn-small" data-action="cancelar-meta" data-meta-id="${meta.id}">Cancelar</button>
-      `;
-    } else if (meta.status === 'CANCELADA') {
-      // Apenas visualização para metas canceladas
-      actionsRow.innerHTML += `
-        <span class="meta-status-cancelada">Meta Cancelada</span>
-      `;
+  function criarBotaoAcao({ texto, classe, action, metaId }) {
+    const botao = document.createElement("button");
+    botao.type = "button";
+    botao.className = `${classe} btn-small`;
+    botao.dataset.action = action;
+    botao.dataset.metaId = metaId;
+    botao.textContent = texto;
+    return botao;
+  }
+
+  function adicionarBotoesGestaoMeta(actionsRow, meta, arquivada, concluida) {
+    if (arquivada) {
+      const label = document.createElement("span");
+      label.className =
+        meta.status === "CANCELADA" ? "meta-status-cancelada" : "meta-status-info";
+      label.textContent =
+        meta.status === "CANCELADA" ? "Meta cancelada" : "Meta finalizada";
+      actionsRow.appendChild(label);
+      return;
     }
-    
-    // Configurar eventos dos novos botões
-    actionsRow.querySelector('[data-action="editar-meta"]')?.addEventListener('click', () => editarMeta(meta));
-    actionsRow.querySelector('[data-action="pausar-meta"]')?.addEventListener('click', () => pausarMeta(meta.id));
-    actionsRow.querySelector('[data-action="retomar-meta"]')?.addEventListener('click', () => retomarMeta(meta.id));
-    actionsRow.querySelector('[data-action="cancelar-meta"]')?.addEventListener('click', () => cancelarMeta(meta));
+
+    if (meta.status === "CONCLUIDA" || concluida) {
+      actionsRow.appendChild(
+        criarBotaoAcao({
+          texto: "Ver detalhes",
+          classe: "btn-secondary",
+          action: "detalhes-meta",
+          metaId: meta.id,
+        })
+      );
+
+      if (!meta.finalizada && !meta.finalizadaEm) {
+        actionsRow.appendChild(
+          criarBotaoAcao({
+            texto: "Registrar uso",
+            classe: "btn-primary",
+            action: "registrar-uso-meta",
+            metaId: meta.id,
+          })
+        );
+        actionsRow.appendChild(
+          criarBotaoAcao({
+            texto: "Liberar saldo",
+            classe: "btn-danger",
+            action: "liberar-saldo-meta",
+            metaId: meta.id,
+          })
+        );
+      } else {
+        const label = document.createElement("span");
+        label.className = "meta-status-info";
+        label.textContent = "Meta finalizada";
+        actionsRow.appendChild(label);
+      }
+      return;
+    }
+
+    if (meta.status === "CANCELADA") {
+      const label = document.createElement("span");
+      label.className = "meta-status-cancelada";
+      label.textContent = "Meta cancelada";
+      actionsRow.appendChild(label);
+      return;
+    }
+
+    if (meta.status === "ATIVA" || meta.status === "PAUSADA") {
+      actionsRow.appendChild(
+        criarBotaoAcao({
+          texto: "Editar",
+          classe: "btn-secondary",
+          action: "editar-meta",
+          metaId: meta.id,
+        })
+      );
+      actionsRow.appendChild(
+        criarBotaoAcao({
+          texto: meta.status === "PAUSADA" ? "Retomar" : "Pausar",
+          classe: meta.status === "PAUSADA" ? "btn-success" : "btn-warning",
+          action: meta.status === "PAUSADA" ? "retomar-meta" : "pausar-meta",
+          metaId: meta.id,
+        })
+      );
+      actionsRow.appendChild(
+        criarBotaoAcao({
+          texto: "Cancelar",
+          classe: "btn-danger",
+          action: "cancelar-meta",
+          metaId: meta.id,
+        })
+      );
+      actionsRow.appendChild(
+        criarBotaoAcao({
+          texto: "Concluir",
+          classe: "btn-primary",
+          action: "concluir-meta",
+          metaId: meta.id,
+        })
+      );
+    }
   }
 
   function buildReservaItem(meta, reserva) {
@@ -538,201 +1232,320 @@ document.addEventListener("DOMContentLoaded", () => {
       perfilNome,
       estaConcluida: false,
       concluidaEm: null,
-      status: 'ATIVA',
+      status: "ATIVA",
+      finalizada: false,
+      finalizadaEm: null,
+      valorUtilizado: 0,
+      saldoRestante: 0,
       reservas: [],
     });
     renderMetas();
   }
 
-  async function editarMeta(meta) {
-    const novoNome = prompt('Novo nome da meta:', meta.nome);
-    if (!novoNome) return;
-    
-    const novoValor = parseFloat(prompt('Novo valor alvo:', meta.valorAlvo));
-    if (isNaN(novoValor) || novoValor <= 0) {
-      alert('Valor inválido');
-      return;
-    }
-    
-    const novaData = prompt('Nova data limite (YYYY-MM-DD):', meta.dataLimite.split('T')[0]);
-    if (!novaData) return;
-    
-    try {
-      const response = await fetch(`/api/meta/meta/${meta.id}/editar`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          nome: novoNome,
-          valor_alvo: novoValor,
-          data_limite: novaData
-        })
-      });
-      
-      if (!response.ok) {
-        const erro = await response.json();
-        throw new Error(erro.erro || 'Erro ao editar meta');
-      }
-      
-      showFeedback('Meta editada com sucesso!', 'success');
-      carregarMetas();
-    } catch (error) {
-      console.error('Erro ao editar meta:', error);
-      showFeedback(error.message, 'error');
-    }
+  function editarMeta(meta) {
+    abrirModalEditar(meta);
   }
 
-  async function pausarMeta(idMeta) {
-    if (!confirm('Tem certeza que deseja pausar esta meta?')) return;
-    
-    try {
-      const response = await fetch(`/api/meta/meta/${idMeta}/pausar`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      
-      if (!response.ok) {
-        const erro = await response.json();
-        throw new Error(erro.erro || 'Erro ao pausar meta');
-      }
-      
-      showFeedback('Meta pausada com sucesso!', 'success');
-      carregarMetas();
-    } catch (error) {
-      console.error('Erro ao pausar meta:', error);
-      showFeedback(error.message, 'error');
-    }
+  function pausarMeta(meta) {
+    if (!meta) return;
+    abrirModalConfirmacao({
+      title: "Pausar meta",
+      message: `Ao pausar a meta "${meta.nome}", novas reservas ficarão bloqueadas. O progresso atual de ${formatCurrency(
+        meta.valorAtual
+      )} será preservado e poderá ser retomado futuramente.`,
+      confirmLabel: "Pausar meta",
+      variant: "warning",
+      onConfirm: async () => {
+        const response = await fetch(`${API_URL}/metas/meta/${meta.id}/pausar`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data?.erro || "Erro ao pausar meta.");
+        }
+        showFeedback(data?.mensagem || "Meta pausada com sucesso!", "success");
+        await carregarMetas();
+      },
+    });
   }
 
-  async function retomarMeta(idMeta) {
-    try {
-      const response = await fetch(`/api/meta/meta/${idMeta}/retomar`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      
-      if (!response.ok) {
-        const erro = await response.json();
-        throw new Error(erro.erro || 'Erro ao retomar meta');
-      }
-      
-      showFeedback('Meta retomada com sucesso!', 'success');
-      carregarMetas();
-    } catch (error) {
-      console.error('Erro ao retomar meta:', error);
-      showFeedback(error.message, 'error');
-    }
+  function retomarMeta(meta) {
+    if (!meta) return;
+    abrirModalConfirmacao({
+      title: "Retomar meta",
+      message: `A meta "${meta.nome}" voltará a receber reservas normalmente. O progresso acumulado continuará em ${formatCurrency(
+        meta.valorAtual
+      )}.`,
+      confirmLabel: "Retomar meta",
+      variant: "success",
+      onConfirm: async () => {
+        const response = await fetch(`${API_URL}/metas/meta/${meta.id}/retomar`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data?.erro || "Erro ao retomar meta.");
+        }
+        showFeedback(data?.mensagem || "Meta retomada com sucesso!", "success");
+        await carregarMetas();
+      },
+    });
   }
 
-  async function cancelarMeta(meta) {
-    const acaoFundos = prompt(
-      `O que deseja fazer com os ${formatCurrency(meta.valorAtual)} já economizados?\n\n` +
-      'Digite "manter" para manter o valor na meta (arquivada)\n' +
-      'Digite "liberar" para liberar o valor\n' +
-      'Digite "realocar" para realocar para outra meta'
-    );
-    
-    if (!acaoFundos || !['manter', 'liberar', 'realocar'].includes(acaoFundos)) {
-      alert('Ação inválida');
-      return;
-    }
-    
-    let idMetaDestino = null;
-    if (acaoFundos === 'realocar') {
-      // Carregar metas disponíveis para realocação
-      const metasResponse = await fetch('/api/data/metas');
-      const todasMetas = await metasResponse.json();
-      const metasDisponiveis = todasMetas.filter(m => 
-        m.id !== meta.id && m.status === 'ATIVA'
-      );
-      
-      if (metasDisponiveis.length === 0) {
-        alert('Não há metas ativas disponíveis para realocação');
-        return;
+  function cancelarMeta(meta) {
+    if (!meta) return;
+    abrirModalCancelar(meta);
+  }
+
+  function concluirMeta(meta) {
+    if (!meta) return;
+    abrirModalConfirmacao({
+      title: "Concluir meta",
+      message: `Deseja marcar a meta "${meta.nome}" como concluída? Você poderá registrar como o valor foi utilizado em seguida.`,
+      confirmLabel: "Concluir meta",
+      variant: "success",
+      onConfirm: async () => {
+        const resposta = await api.concluirMeta(meta.id);
+        atualizarEstadoMeta(meta.id, {
+          status: "CONCLUIDA",
+          concluida_em: resposta?.concluida_em,
+          esta_concluida: true,
+        });
+        await carregarMetas();
+        const metaConcluida = metasState.get(meta.id);
+        if (metaConcluida) {
+          celebrarConclusao(metaConcluida);
+        }
+      },
+    });
+  }
+
+  function liberarSaldoMeta(meta) {
+    if (!meta) return;
+    const valorAtual = Number(meta.valorAtual || 0);
+    const valorUtilizado = Math.abs(Number(meta.valorUtilizado || 0));
+    const saldoCalculado = Math.max(0, valorAtual - valorUtilizado);
+    const saldoExibicao = formatCurrency(saldoCalculado);
+    abrirModalConfirmacao({
+      title: "Liberar saldo",
+      message: `Confirma liberar ${saldoExibicao} da meta "${meta.nome}"? Essa ação finaliza a meta e move o histórico para as metas arquivadas.`,
+      confirmLabel: "Liberar saldo",
+      variant: "danger",
+      onConfirm: async () => {
+        const resposta = await api.liberarSaldoMeta(meta.id);
+        metaDetalhesCache.delete(meta.id);
+        const detalhesAtualizados = await carregarDetalhesMeta(meta.id, false);
+        if (metaEmDetalhe && metaEmDetalhe.id === meta.id && detalhesAtualizados) {
+          const metaAtualizada = metasState.get(meta.id);
+          if (metaAtualizada) {
+            metaEmDetalhe = metaAtualizada;
+            preencherDetalhesMetaView(metaAtualizada, detalhesAtualizados);
+          }
+        }
+        await carregarMetas();
+        showFeedback(
+          resposta?.mensagem || "Saldo liberado com sucesso!",
+          "success"
+        );
+      },
+    });
+  }
+
+  function processarAcaoMeta(event) {
+    const trigger = event.target.closest("[data-action]");
+    if (!trigger) return;
+
+    const action = trigger.dataset.action;
+    const metaId = trigger.dataset.metaId;
+    if (!action || !metaId) return;
+
+    const meta = metasState.get(metaId);
+
+    switch (action) {
+      case "abrir-reserva":
+        abrirModalReserva(metaId, "create");
+        break;
+      case "editar-reserva": {
+        const reservaId = trigger.dataset.reservaId;
+        abrirModalReserva(metaId, "edit", reservaId);
+        break;
       }
-      
-      const metaDestinoNome = prompt(
-        'Digite o nome exato da meta destino:\n' +
-        metasDisponiveis.map(m => m.nome).join('\n')
-      );
-      
-      const metaDestino = metasDisponiveis.find(m => m.nome === metaDestinoNome);
-      if (!metaDestino) {
-        alert('Meta destino não encontrada');
-        return;
+      case "excluir-reserva": {
+        const reservaId = trigger.dataset.reservaId;
+        abrirModalExclusao(metaId, reservaId);
+        break;
       }
-      
-      idMetaDestino = metaDestino.id;
-    }
-    
-    if (!confirm(`Tem certeza que deseja cancelar a meta "${meta.nome}"?`)) {
-      return;
-    }
-    
-    try {
-      const response = await fetch(`/api/meta/meta/${meta.id}/cancelar`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          acao_fundos: acaoFundos,
-          id_meta_destino: idMetaDestino
-        })
-      });
-      
-      if (!response.ok) {
-        const erro = await response.json();
-        throw new Error(erro.erro || 'Erro ao cancelar meta');
-      }
-      
-      showFeedback('Meta cancelada com sucesso!', 'success');
-      carregarMetas();
-    } catch (error) {
-      console.error('Erro ao cancelar meta:', error);
-      showFeedback(error.message, 'error');
+      case "editar-meta":
+        if (meta) editarMeta(meta);
+        else showFeedback("Meta não encontrada.", "error");
+        break;
+      case "pausar-meta":
+        if (meta) pausarMeta(meta);
+        else showFeedback("Meta não encontrada.", "error");
+        break;
+      case "retomar-meta":
+        if (meta) retomarMeta(meta);
+        else showFeedback("Meta não encontrada.", "error");
+        break;
+      case "cancelar-meta":
+        if (meta) cancelarMeta(meta);
+        else showFeedback("Meta não encontrada.", "error");
+        break;
+      case "concluir-meta":
+        if (meta) concluirMeta(meta);
+        else showFeedback("Meta não encontrada.", "error");
+        break;
+      case "detalhes-meta":
+        if (meta) abrirDetalhesMeta(meta);
+        else showFeedback("Meta não encontrada.", "error");
+        break;
+      case "registrar-uso-meta":
+        if (meta) abrirModalRegistrarUso(meta);
+        else showFeedback("Meta não encontrada.", "error");
+        break;
+      case "liberar-saldo-meta":
+        if (meta) liberarSaldoMeta(meta);
+        else showFeedback("Meta não encontrada.", "error");
+        break;
+      default:
+        break;
     }
   }
 
   // Event Listeners
-  metasContainer?.addEventListener("click", (event) => {
-    const action = event.target.dataset?.action;
-    if (!action) return;
-    const metaId = event.target.dataset.metaId;
-    if (!metaId) return;
+  metasContainer?.addEventListener("click", processarAcaoMeta);
+  metasConcluidasContainer?.addEventListener("click", processarAcaoMeta);
 
-    if (action === "abrir-reserva") {
-      abrirModalReserva(metaId, "create");
-    } else if (action === "editar-reserva") {
-      const reservaId = event.target.dataset.reservaId;
-      abrirModalReserva(metaId, "edit", reservaId);
-    } else if (action === "excluir-reserva") {
-      const reservaId = event.target.dataset.reservaId;
-      abrirModalExclusao(metaId, reservaId);
-    } else if (action === "editar-meta") {
-      const meta = metasState.get(metaId);
-      if (meta) editarMeta(meta);
-    } else if (action === "pausar-meta") {
-      pausarMeta(metaId);
-    } else if (action === "retomar-meta") {
-      retomarMeta(metaId);
-    } else if (action === "cancelar-meta") {
-      const meta = metasState.get(metaId);
-      if (meta) cancelarMeta(meta);
+  btnFecharDetalhesMeta?.addEventListener("click", () => {
+    fecharModalDetalhesMeta();
+  });
+
+  modalDetalhesMeta?.addEventListener("click", (event) => {
+    if (event.target === modalDetalhesMeta) {
+      fecharModalDetalhesMeta();
     }
   });
 
-  metasConcluidasContainer?.addEventListener("click", (event) => {
-    const action = event.target.dataset?.action;
-    if (!action) return;
-    const metaId = event.target.dataset.metaId;
-    if (!metaId) return;
+  btnRegistrarUsoMeta?.addEventListener("click", () => {
+    if (!metaEmDetalhe) return;
+    abrirModalRegistrarUso(metaEmDetalhe);
+  });
 
-    if (action === "abrir-reserva") {
-      abrirModalReserva(metaId, "create");
-    } else if (action === "editar-reserva") {
-      const reservaId = event.target.dataset.reservaId;
-      abrirModalReserva(metaId, "edit", reservaId);
-    } else if (action === "excluir-reserva") {
-      const reservaId = event.target.dataset.reservaId;
-      abrirModalExclusao(metaId, reservaId);
+  btnLiberarSaldoMeta?.addEventListener("click", () => {
+    if (!metaEmDetalhe) return;
+    liberarSaldoMeta(metaEmDetalhe);
+  });
+
+  btnCancelarRegistrarUso?.addEventListener("click", (event) => {
+    event.preventDefault();
+    fecharModalRegistrarUso();
+  });
+
+  modalRegistrarUso?.addEventListener("click", (event) => {
+    if (event.target === modalRegistrarUso) {
+      fecharModalRegistrarUso();
+    }
+  });
+
+  registrarUsoSelect?.addEventListener("change", () => {
+    if (!detalhesMetaAtual) {
+      btnConfirmarRegistrarUso.disabled = true;
+      return;
+    }
+
+    const transacaoIdSelecionada = registrarUsoSelect.value;
+    if (!transacaoIdSelecionada) {
+      preencherPainelUso(detalhesMetaAtual);
+      btnConfirmarRegistrarUso.disabled = true;
+      return;
+    }
+
+    const transacaoSelecionada = (transacoesCache || []).find(
+      (item) => String(item.id) === String(transacaoIdSelecionada)
+    );
+
+    if (!transacaoSelecionada) {
+      preencherPainelUso(detalhesMetaAtual);
+      btnConfirmarRegistrarUso.disabled = true;
+      return;
+    }
+
+    preencherPainelUso(detalhesMetaAtual, transacaoSelecionada);
+    btnConfirmarRegistrarUso.disabled = false;
+  });
+
+  formRegistrarUso?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    if (!metaParaRegistrarUso) {
+      showFeedback(
+        "Meta não encontrada para registrar o uso.",
+        "error"
+      );
+      return;
+    }
+
+    if (!registrarUsoSelect) {
+      showFeedback("Selecione uma despesa para registrar o uso.", "error");
+      return;
+    }
+
+    const transacaoIdSelecionada = registrarUsoSelect.value;
+    if (!transacaoIdSelecionada) {
+      showFeedback("Selecione uma despesa para registrar o uso.", "error");
+      return;
+    }
+
+    try {
+      btnConfirmarRegistrarUso.disabled = true;
+      btnConfirmarRegistrarUso.textContent = "Registrando...";
+
+      const resposta = await api.registrarUsoMeta(
+        metaParaRegistrarUso.id,
+        transacaoIdSelecionada
+      );
+
+      metaDetalhesCache.delete(metaParaRegistrarUso.id);
+      const detalhesAtualizados = await carregarDetalhesMeta(
+        metaParaRegistrarUso.id,
+        false
+      );
+
+      if (
+        metaEmDetalhe &&
+        metaEmDetalhe.id === metaParaRegistrarUso.id &&
+        detalhesAtualizados
+      ) {
+        const metaAtualizada = metasState.get(metaParaRegistrarUso.id);
+        if (metaAtualizada) {
+          metaEmDetalhe = metaAtualizada;
+          preencherDetalhesMetaView(metaAtualizada, detalhesAtualizados);
+        }
+      }
+
+      await carregarMetas();
+
+      showFeedback(
+        resposta?.mensagem || "Uso registrado com sucesso!",
+        "success"
+      );
+
+      fecharModalRegistrarUso();
+    } catch (error) {
+      console.error(error);
+      showFeedback(
+        error.message || "Não foi possível registrar o uso da meta.",
+        "error"
+      );
+    } finally {
+      btnConfirmarRegistrarUso.textContent = "Registrar uso";
+      if (modalRegistrarUso?.classList.contains("hidden")) {
+        btnConfirmarRegistrarUso.disabled = true;
+      } else {
+        btnConfirmarRegistrarUso.disabled = false;
+      }
     }
   });
 
@@ -755,6 +1568,207 @@ document.addEventListener("DOMContentLoaded", () => {
   modalConfirmReserva?.addEventListener("click", (event) => {
     if (event.target === modalConfirmReserva) {
       fecharModalExclusao();
+    }
+  });
+
+  btnCancelarEdicaoMeta?.addEventListener("click", (event) => {
+    event.preventDefault();
+    fecharModalEditar();
+  });
+
+  modalEditarMeta?.addEventListener("click", (event) => {
+    if (event.target === modalEditarMeta) {
+      fecharModalEditar();
+    }
+  });
+
+  formEditarMeta?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    if (!metaEmEdicao) {
+      showFeedback("Meta não encontrada para edição.", "error");
+      return;
+    }
+
+    const nome = editarMetaNomeInput.value.trim();
+    const valor = Number(editarMetaValorInput.value);
+    const dataLimite = editarMetaDataInput.value;
+
+    if (!nome) {
+      showFeedback("Informe um nome válido para a meta.", "error");
+      return;
+    }
+    if (Number.isNaN(valor) || valor <= 0) {
+      showFeedback("Informe um valor alvo maior que zero.", "error");
+      return;
+    }
+    if (!dataLimite) {
+      showFeedback("Selecione uma data limite futura.", "error");
+      return;
+    }
+
+    const dataSelecionada = new Date(`${dataLimite}T00:00:00`);
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    if (dataSelecionada <= hoje) {
+      showFeedback("A data limite deve ser futura.", "error");
+      return;
+    }
+
+    const metaId = metaEmEdicao.id;
+
+    try {
+      btnSalvarEdicaoMeta.disabled = true;
+      btnSalvarEdicaoMeta.textContent = "Salvando...";
+
+      const response = await fetch(`${API_URL}/metas/meta/${metaId}/editar`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nome,
+          valor_alvo: valor,
+          data_limite: dataLimite,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.erro || "Não foi possível editar a meta.");
+      }
+
+      const perfilNome = metaEmEdicao.perfilNome || "";
+      atualizarEstadoMeta(metaId, data, perfilNome);
+      renderMetas();
+      fecharModalEditar();
+      showFeedback(data?.mensagem || "Meta editada com sucesso!", "success");
+    } catch (error) {
+      console.error(error);
+      showFeedback(error.message || "Não foi possível editar a meta.", "error");
+    } finally {
+      btnSalvarEdicaoMeta.disabled = false;
+      btnSalvarEdicaoMeta.textContent = "Salvar alterações";
+      const metaAtualizada = metasState.get(metaId);
+      if (!modalEditarMeta?.classList.contains("hidden")) {
+        metaEmEdicao = metaAtualizada;
+        if (metaAtualizada) {
+          const progressoAtual = calcularProgresso(
+            metaAtualizada.valorAtual,
+            metaAtualizada.valorAlvo
+          );
+          editarMetaProgresso.textContent = `Progresso atual: ${formatCurrency(
+            metaAtualizada.valorAtual
+          )} (${progressoAtual}%)`;
+        }
+      }
+    }
+  });
+
+  btnCancelarConfirmMeta?.addEventListener("click", (event) => {
+    event.preventDefault();
+    fecharModalConfirmacao();
+  });
+
+  modalConfirmMeta?.addEventListener("click", (event) => {
+    if (event.target === modalConfirmMeta) {
+      fecharModalConfirmacao();
+    }
+  });
+
+  btnConfirmMeta?.addEventListener("click", async () => {
+    if (!confirmMetaCallback) {
+      fecharModalConfirmacao();
+      return;
+    }
+
+    try {
+      btnConfirmMeta.disabled = true;
+      await confirmMetaCallback();
+      fecharModalConfirmacao();
+    } catch (error) {
+      console.error(error);
+      showFeedback(error.message || "Não foi possível concluir a ação.", "error");
+    } finally {
+      btnConfirmMeta.disabled = false;
+    }
+  });
+
+  formCancelarMeta?.addEventListener("change", (event) => {
+    if (event.target.name === "cancelar-acao") {
+      atualizarVisibilidadeRealocacao(event.target.value);
+    }
+  });
+
+  btnCancelarCancelamentoMeta?.addEventListener("click", (event) => {
+    event.preventDefault();
+    fecharModalCancelar();
+  });
+
+  modalCancelarMeta?.addEventListener("click", (event) => {
+    if (event.target === modalCancelarMeta) {
+      fecharModalCancelar();
+    }
+  });
+
+  formCancelarMeta?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!metaParaCancelar) {
+      showFeedback("Meta não encontrada para cancelamento.", "error");
+      return;
+    }
+
+    const acaoSelecionada = formCancelarMeta.querySelector(
+      'input[name="cancelar-acao"]:checked'
+    )?.value;
+
+    if (!acaoSelecionada) {
+      showFeedback("Selecione o destino dos fundos antes de cancelar a meta.", "error");
+      return;
+    }
+
+    let idMetaDestino = null;
+    if (acaoSelecionada === "realocar") {
+      if (cancelarMetaDestinoSelect?.disabled) {
+        showFeedback(
+          "Não há metas ativas disponíveis para realocação no momento.",
+          "warning"
+        );
+        return;
+      }
+      idMetaDestino = cancelarMetaDestinoSelect?.value;
+      if (!idMetaDestino) {
+        showFeedback(
+          "Selecione a meta que receberá os recursos realocados.",
+          "error"
+        );
+        return;
+      }
+    }
+
+    try {
+      btnConfirmarCancelamentoMeta.disabled = true;
+      btnConfirmarCancelamentoMeta.textContent = "Cancelando...";
+
+      const response = await fetch(`${API_URL}/metas/meta/${metaParaCancelar.id}/cancelar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          acao_fundos: acaoSelecionada,
+          id_meta_destino: idMetaDestino,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.erro || "Não foi possível cancelar a meta.");
+      }
+
+      showFeedback(data?.mensagem || "Meta cancelada com sucesso!", "success");
+      await carregarMetas();
+      fecharModalCancelar();
+    } catch (error) {
+      console.error(error);
+      showFeedback(error.message || "Não foi possível cancelar a meta.", "error");
+    } finally {
+      btnConfirmarCancelamentoMeta.disabled = false;
+      btnConfirmarCancelamentoMeta.textContent = "Cancelar meta";
     }
   });
 

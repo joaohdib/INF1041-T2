@@ -143,6 +143,21 @@
       </section>
 
       <section
+        id="metas-arquivadas-card"
+        class="card metas-arquivadas-card hidden"
+      >
+        <div class="metas-list-header">
+          <div>
+            <h2>Metas arquivadas</h2>
+            <p class="meta-list-intro">
+              Consulte metas canceladas e o histórico de reservas associado.
+            </p>
+          </div>
+        </div>
+        <div id="metas-arquivadas" class="metas-grid"></div>
+      </section>
+
+      <section
         id="metas-concluidas-card"
         class="card metas-concluidas-card hidden"
       >
@@ -231,6 +246,206 @@
       </div>
     </div>
 
+    <div id="modal-detalhes-meta" class="modal-backdrop hidden">
+      <div class="modal" style="max-width: 520px">
+        <div class="meta-detalhes">
+          <header class="meta-detalhes-header">
+            <div>
+              <h2 id="detalhes-meta-nome">Detalhes da meta</h2>
+              <p id="detalhes-meta-status" class="meta-modal-meta"></p>
+            </div>
+            <button type="button" id="btn-fechar-detalhes-meta" class="btn-inline">
+              Fechar
+            </button>
+          </header>
+          <div class="meta-detalhes-grid">
+            <div>
+              <span class="meta-detalhes-label">Valor economizado</span>
+              <strong id="detalhes-meta-economizado">-</strong>
+            </div>
+            <div>
+              <span class="meta-detalhes-label">Valor utilizado</span>
+              <strong id="detalhes-meta-utilizado">-</strong>
+            </div>
+            <div>
+              <span class="meta-detalhes-label">Saldo restante</span>
+              <strong id="detalhes-meta-saldo">-</strong>
+            </div>
+            <div>
+              <span class="meta-detalhes-label">Diferença</span>
+              <strong id="detalhes-meta-diferenca">-</strong>
+            </div>
+          </div>
+          <p id="detalhes-meta-observacao" class="meta-detalhes-observacao"></p>
+
+          <div class="meta-detalhes-actions">
+            <button type="button" id="btn-registrar-uso-meta" class="btn-primary btn-small">
+              Registrar uso do valor
+            </button>
+            <button type="button" id="btn-liberar-saldo-meta" class="btn-danger btn-small">
+              Liberar saldo restante
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="modal-registrar-uso" class="modal-backdrop hidden">
+      <div class="modal" style="max-width: 520px">
+        <form id="form-registrar-uso" novalidate>
+          <h2>Registrar uso do valor</h2>
+          <p id="registrar-uso-resumo" class="meta-modal-meta"></p>
+
+          <div class="form-group">
+            <label for="registrar-uso-transacao">Selecione uma despesa *</label>
+            <select id="registrar-uso-transacao" required></select>
+            <small id="registrar-uso-sem-transacoes" class="meta-help hidden">
+              Nenhuma despesa disponível. Cadastre uma transação de despesa antes de registrar o uso.
+            </small>
+          </div>
+
+          <div class="meta-detalhes-grid" id="registrar-uso-panel">
+            <div>
+              <span class="meta-detalhes-label">Valor economizado</span>
+              <strong id="registrar-uso-economizado">-</strong>
+            </div>
+            <div>
+              <span class="meta-detalhes-label">Valor utilizado</span>
+              <strong id="registrar-uso-utilizado">-</strong>
+            </div>
+            <div>
+              <span class="meta-detalhes-label">Saldo restante</span>
+              <strong id="registrar-uso-saldo">-</strong>
+            </div>
+            <div>
+              <span class="meta-detalhes-label">Diferença</span>
+              <strong id="registrar-uso-diferenca">-</strong>
+            </div>
+          </div>
+
+          <div class="modal-botoes">
+            <button type="button" id="btn-cancelar-registrar-uso" class="btn-secondary">
+              Cancelar
+            </button>
+            <button type="submit" id="btn-confirmar-registrar-uso" class="btn-primary">
+              Registrar uso
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="modal-editar-meta" class="modal-backdrop hidden">
+      <div class="modal" style="max-width: 440px">
+        <form id="form-editar-meta" novalidate>
+          <h2>Editar meta</h2>
+          <p id="editar-meta-progresso" class="meta-modal-meta"></p>
+
+          <input type="hidden" id="editar-meta-id" />
+
+          <div class="form-group">
+            <label for="editar-meta-nome">Nome da meta *</label>
+            <input
+              type="text"
+              id="editar-meta-nome"
+              maxlength="120"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="editar-meta-valor">Valor alvo (R$) *</label>
+            <input
+              type="number"
+              id="editar-meta-valor"
+              step="0.01"
+              min="0"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="editar-meta-data">Data limite *</label>
+            <input type="date" id="editar-meta-data" required />
+          </div>
+
+          <div class="modal-botoes">
+            <button type="button" id="btn-cancelar-edicao-meta" class="btn-secondary">
+              Cancelar
+            </button>
+            <button type="submit" id="btn-salvar-edicao-meta" class="btn-primary">
+              Salvar alterações
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="modal-confirm-meta" class="modal-backdrop hidden">
+      <div class="modal" style="max-width: 380px">
+        <div>
+          <h2 id="confirm-meta-title">Confirmar ação</h2>
+          <p id="confirm-meta-message" class="meta-modal-meta"></p>
+          <div class="modal-botoes">
+            <button type="button" id="btn-cancelar-confirm-meta" class="btn-secondary">
+              Voltar
+            </button>
+            <button type="button" id="btn-confirm-meta" class="btn-primary">
+              Confirmar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="modal-cancelar-meta" class="modal-backdrop hidden">
+      <div class="modal" style="max-width: 460px">
+        <form id="form-cancelar-meta" novalidate>
+          <h2>Cancelar meta</h2>
+          <p id="cancelar-meta-resumo" class="meta-modal-meta"></p>
+
+          <fieldset class="meta-radio-group">
+            <legend>O que deseja fazer com os fundos reservados?</legend>
+            <label class="meta-radio-option">
+              <input
+                type="radio"
+                name="cancelar-acao"
+                value="manter"
+                checked
+              />
+              Manter na meta arquivada
+            </label>
+            <label class="meta-radio-option">
+              <input type="radio" name="cancelar-acao" value="liberar" />
+              Liberar o valor reservado
+            </label>
+            <label class="meta-radio-option" id="cancelar-meta-realocar-wrapper">
+              <input type="radio" name="cancelar-acao" value="realocar" />
+              Realocar para outra meta ativa
+            </label>
+          </fieldset>
+
+          <div class="form-group hidden" id="cancelar-meta-destino-group">
+            <label for="cancelar-meta-destino">Selecione a meta destino *</label>
+            <select id="cancelar-meta-destino"></select>
+            <small id="cancelar-meta-sem-opcoes" class="meta-help hidden">
+              Nenhuma meta ativa disponível para realocação.
+            </small>
+          </div>
+
+          <div class="modal-botoes">
+            <button type="button" id="btn-cancelar-cancelamento-meta" class="btn-secondary">
+              Voltar
+            </button>
+            <button type="submit" id="btn-confirmar-cancelamento-meta" class="btn-danger">
+              Cancelar meta
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <script type="module" src="js/metas.js"></script>
+    <div id="confetti-container" class="confetti hidden"></div>
   </body>
 </html>

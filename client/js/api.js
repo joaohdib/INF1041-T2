@@ -194,6 +194,58 @@ export const api = {
     return data;
   },
 
+  obterDetalhesMeta: async (id) => {
+    const response = await fetch(`${API_URL}/metas/meta/${id}/detalhes`);
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data?.erro || "Falha ao carregar detalhes da meta");
+    }
+    return data;
+  },
+
+  concluirMeta: async (id) => {
+    const response = await fetch(`${API_URL}/metas/meta/${id}/concluir`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data?.erro || "Falha ao concluir meta");
+    }
+    return data;
+  },
+
+  registrarUsoMeta: async (idMeta, idTransacao) => {
+    const response = await fetch(`${API_URL}/metas/meta/${idMeta}/registrar-uso`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id_transacao: idTransacao }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data?.erro || "Falha ao registrar uso da meta");
+    }
+    return data;
+  },
+
+  liberarSaldoMeta: async (idMeta) => {
+    const response = await fetch(`${API_URL}/metas/meta/${idMeta}/liberar-saldo`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data?.erro || "Falha ao liberar saldo da meta");
+    }
+    return data;
+  },
+
+  getTransacoes: async () => {
+    const response = await fetch(`${API_URL}/transacoes/inbox`);
+    if (!response.ok) throw new Error("Falha ao buscar transações");
+    return response.json();
+  },
+
   /**
    * Busca mapeamentos salvos para importação.
    */

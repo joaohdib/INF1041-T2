@@ -27,6 +27,10 @@ class FakeMetaRepository(IMetaRepository):
                 return meta
         return None
 
+    def sum_reservas(self, id_meta: str) -> float:
+        meta = self.get_by_id(id_meta)
+        return float(meta.valor_atual) if meta else 0.0
+
 
 def test_criar_meta_sucesso_calculo_mensal():
     repo = FakeMetaRepository()

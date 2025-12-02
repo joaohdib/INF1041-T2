@@ -41,7 +41,7 @@ class Meta:
         """Edita os dados básicos da meta."""
         if self.status == StatusMeta.CONCLUIDA:
             raise ValueError("Não é possível editar uma meta concluída.")
-        
+
         self.nome = nome
         self.valor_alvo = valor_alvo
         self.data_limite = data_limite
@@ -79,7 +79,8 @@ class Meta:
     def registrar_aporte(self, valor: float):
         """Incrementa o valor atual da meta com validação."""
         if self.status != StatusMeta.ATIVA:
-            raise ValueError("Só é possível registrar aportes em metas ativas.")
+            raise ValueError(
+                "Só é possível registrar aportes em metas ativas.")
         if valor <= 0:
             raise ValueError("Valor do aporte deve ser positivo.")
         self.valor_atual += valor

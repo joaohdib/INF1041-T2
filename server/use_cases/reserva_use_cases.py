@@ -16,7 +16,8 @@ class _ReservaUseCaseBase:
         try:
             valor_float = float(valor)
         except (TypeError, ValueError):
-            raise ValueError("Informe um valor numérico válido para a reserva.")
+            raise ValueError(
+                "Informe um valor numérico válido para a reserva.")
         if valor_float <= 0:
             raise ValueError("O valor da reserva deve ser positivo.")
         return valor_float
@@ -75,7 +76,8 @@ class CriarReserva(_ReservaUseCaseBase):
         if not meta:
             raise ValueError("Meta não encontrada para associar a reserva.")
         if meta.esta_concluida():
-            raise ValueError("Meta já concluída não pode receber novas reservas.")
+            raise ValueError(
+                "Meta já concluída não pode receber novas reservas.")
 
         valor_float = self._converter_valor(valor)
 
@@ -112,7 +114,8 @@ class AtualizarReserva(_ReservaUseCaseBase):
         if not reserva:
             raise ValueError("Reserva não encontrada.")
         if reserva.id_usuario != id_usuario:
-            raise PermissionError("Usuário não autorizado a alterar esta reserva.")
+            raise PermissionError(
+                "Usuário não autorizado a alterar esta reserva.")
 
         valor_float = self._converter_valor(novo_valor)
         reserva.atualizar_valor(valor_float)
@@ -135,7 +138,8 @@ class ExcluirReserva(_ReservaUseCaseBase):
         if not reserva:
             raise ValueError("Reserva não encontrada.")
         if reserva.id_usuario != id_usuario:
-            raise PermissionError("Usuário não autorizado a excluir esta reserva.")
+            raise PermissionError(
+                "Usuário não autorizado a excluir esta reserva.")
 
         id_meta = reserva.id_meta
         self.reserva_repo.delete(id_reserva)

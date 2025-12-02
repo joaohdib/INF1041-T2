@@ -70,7 +70,8 @@ class ImportarExtratoBancario:
             transacoes = self._parse_ofx(file_bytes)
 
         if not transacoes:
-            raise ValueError("Nenhuma transação válida encontrada no arquivo enviado.")
+            raise ValueError(
+                "Nenhuma transação válida encontrada no arquivo enviado.")
 
         for dados in transacoes:
             transacao = Transacao(
@@ -124,9 +125,11 @@ class ImportarExtratoBancario:
             data_rows = linhas[1:]
 
         if not data_rows:
-            raise ValueError("Nenhuma transação válida encontrada no arquivo enviado.")
+            raise ValueError(
+                "Nenhuma transação válida encontrada no arquivo enviado.")
 
-        mapping = self._resolve_mapping(fieldnames, column_mapping, sem_cabecalho)
+        mapping = self._resolve_mapping(
+            fieldnames, column_mapping, sem_cabecalho)
 
         transacoes = []
         for row in data_rows:
@@ -315,7 +318,8 @@ class ImportarExtratoBancario:
                 raise ValueError("Repositório de mapeamentos indisponível.")
             mapeamento = self.mapeamento_repo.get_by_id(mapping_id)
             if not mapeamento or mapeamento.id_usuario != id_usuario:
-                raise ValueError("Mapeamento não encontrado para este usuário.")
+                raise ValueError(
+                    "Mapeamento não encontrado para este usuário.")
             sem_cabecalho = all(
                 coluna.startswith("__col_")
                 for coluna in [

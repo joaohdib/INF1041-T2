@@ -28,6 +28,10 @@ class FakeMetaRepository(IMetaRepository):
     def get_by_id(self, id_meta: str):
         return self.metas.get(id_meta)
 
+    def sum_reservas(self, id_meta: str) -> float:
+        meta = self.get_by_id(id_meta)
+        return float(meta.valor_atual) if meta else 0.0
+
 
 class FakeReservaRepository(IReservaRepository):
     def __init__(self):
@@ -72,11 +76,13 @@ def test_criar_reserva_atualiza_progresso():
     meta = criar_meta("user1", 1000.0, valor_inicial=100.0)
     meta_repo.add(meta)
 
-    reserva_existente = Reserva(id_usuario="user1", id_meta=meta.id, valor=100.0)
+    reserva_existente = Reserva(
+        id_usuario="user1", id_meta=meta.id, valor=100.0)
     reserva_repo.add(reserva_existente)
 
     use_case = CriarReserva(reserva_repo, meta_repo)
-    resposta = use_case.execute(id_usuario="user1", id_meta=meta.id, valor=50.0)
+    resposta = use_case.execute(
+        id_usuario="user1", id_meta=meta.id, valor=50.0)
 
     assert resposta["meta"]["valor_atual"] == pytest.approx(150.0)
     assert meta_repo.get_by_id(meta.id).valor_atual == pytest.approx(150.0)
@@ -91,7 +97,8 @@ def test_criar_reserva_conclui_meta():
     reserva_repo.add(Reserva(id_usuario="user1", id_meta=meta.id, valor=980.0))
 
     use_case = CriarReserva(reserva_repo, meta_repo)
-    resposta = use_case.execute(id_usuario="user1", id_meta=meta.id, valor=50.0)
+    resposta = use_case.execute(
+        id_usuario="user1", id_meta=meta.id, valor=50.0)
 
     assert resposta["meta"]["esta_concluida"] is True
     assert "mensagem" in resposta
@@ -177,4 +184,5 @@ def test_atualizar_reserva_verifica_permissao():
     use_case = AtualizarReserva(reserva_repo, meta_repo)
 
     with pytest.raises(PermissionError):
-        use_case.execute(id_usuario="user2", id_reserva=reserva.id, novo_valor=20.0)
+        use_case.execute(id_usuario="user2",
+                         id_reserva=reserva.id, novo_valor=20.0)

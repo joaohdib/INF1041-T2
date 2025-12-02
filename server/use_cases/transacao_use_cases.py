@@ -81,7 +81,8 @@ class AnexarReciboTransacao:
     ) -> Anexo:
         # 1. Validações do arquivo (Cenários de Falha)
         if content_length is None:
-            raise ValueError("Não foi possível determinar o tamanho do arquivo.")
+            raise ValueError(
+                "Não foi possível determinar o tamanho do arquivo.")
 
         if content_length > self.MAX_SIZE_BYTES:
             raise ValueError("Arquivo excede o tamanho máximo de 5MB.")
@@ -99,7 +100,8 @@ class AnexarReciboTransacao:
 
         # Regra de Segurança: Usuário só pode anexar em suas transações
         if transacao.id_usuario != id_usuario:
-            raise PermissionError("Usuário não autorizado a acessar esta transação.")
+            raise PermissionError(
+                "Usuário não autorizado a acessar esta transação.")
 
         anexos_existentes = self.anexo_repo.get_by_transacao_id(id_transacao)
         for anexo_antigo in anexos_existentes:
@@ -112,7 +114,8 @@ class AnexarReciboTransacao:
 
         # 3. Salvar no Storage (Camada de Infra)
         # O storage lida com a E/S de disco e retorna o caminho
-        caminho_storage = self.storage.save(file_stream, file_name, content_type)
+        caminho_storage = self.storage.save(
+            file_stream, file_name, content_type)
 
         # 4. Criar Entidade de Domínio
         anexo = Anexo(
@@ -142,10 +145,12 @@ class AtualizarTransacao:
             raise ValueError("Transação não encontrada.")
 
         if transacao.id_usuario != id_usuario:
-            raise PermissionError("Usuário não autorizado a editar esta transação.")
+            raise PermissionError(
+                "Usuário não autorizado a editar esta transação.")
 
         if transacao.status == StatusTransacao.PROCESSADO:
-            raise PermissionError("Não é possível editar uma transação já processada.")
+            raise PermissionError(
+                "Não é possível editar uma transação já processada.")
 
         # Valor e Data NUNCA são atualizados aqui.
         if "descricao" in dados_atualizados:
@@ -177,7 +182,8 @@ class DeletarTransacao:
             return
 
         if transacao.id_usuario != id_usuario:
-            raise PermissionError("Usuário não autorizado a deletar esta transação.")
+            raise PermissionError(
+                "Usuário não autorizado a deletar esta transação.")
 
         self.transacao_repo.delete(id_transacao)
         print(f"Caso de Uso: Transação {id_transacao} deletada.")
@@ -195,7 +201,8 @@ class ListarTransacoesPendentes:
 
     def execute(self, id_usuario: str) -> List[Transacao]:
         # A lógica de negócio é delegada ao repositório
-        transacoes_pendentes = self.transacao_repo.get_pendentes_by_usuario(id_usuario)
+        transacoes_pendentes = self.transacao_repo.get_pendentes_by_usuario(
+            id_usuario)
         return transacoes_pendentes
 
 
@@ -254,7 +261,8 @@ class FiltrarTransacoes:
         sem_perfil: bool = False,
     ) -> List[Transacao]:
         if data_de and data_ate and data_ate < data_de:
-            raise ValueError("A data 'Até' deve ser maior ou igual à data 'De'.")
+            raise ValueError(
+                "A data 'Até' deve ser maior ou igual à data 'De'.")
         if valor_min is not None and valor_max is not None and valor_max < valor_min:
             raise ValueError(
                 "O valor 'Máximo' deve ser maior ou igual ao valor 'Mínimo'."

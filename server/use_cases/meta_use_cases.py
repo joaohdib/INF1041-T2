@@ -58,7 +58,8 @@ class CriarMeta:
             raise ValueError("O valor deve ser maior que zero.")
 
         if not data_limite:
-            raise ValueError("Data Final é obrigatória para o planejamento da meta.")
+            raise ValueError(
+                "Data Final é obrigatória para o planejamento da meta.")
 
         if isinstance(data_limite, str):
             try:
@@ -239,7 +240,8 @@ class CancelarMeta:
             raise ValueError("Ação de fundos inválida.")
 
         if acao_fundos == "realocar" and not id_meta_destino:
-            raise ValueError("ID da meta destino é obrigatório para realocação.")
+            raise ValueError(
+                "ID da meta destino é obrigatório para realocação.")
 
         # Realocar fundos se necessário
         if acao_fundos == "realocar":
@@ -318,7 +320,8 @@ class RegistrarUsoMeta:
         if transacao.id_usuario != id_usuario:
             raise ValueError("Transação não pertence ao usuário.")
 
-        meta_uso = self.meta_uso_repo.add_uso(id_meta, id_transacao, transacao.valor)
+        meta_uso = self.meta_uso_repo.add_uso(
+            id_meta, id_transacao, transacao.valor)
 
         return {
             "id_meta": id_meta,

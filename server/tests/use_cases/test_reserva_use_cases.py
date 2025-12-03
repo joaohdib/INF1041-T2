@@ -1,6 +1,14 @@
+import os
+import sys
 from datetime import datetime, timedelta
 
 import pytest
+
+# Garante que /server esteja no sys.path mesmo quando o arquivo é executado diretamente
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 from domain.meta import Meta
 from domain.reserva import Reserva
 from use_cases.repository_interfaces import IMetaRepository, IReservaRepository
@@ -84,7 +92,8 @@ def test_criar_reserva_atualiza_progresso():
     resposta = use_case.execute(
         id_usuario="user1", id_meta=meta.id, valor=50.0)
 
-    assert resposta["meta"]["valor_atual"] == pytest.approx(150.0)
+    meta_resultado = resposta["meta"]
+    assert meta_resultado.valor_atual == pytest.approx(150.0)
     assert meta_repo.get_by_id(meta.id).valor_atual == pytest.approx(150.0)
 
 
@@ -100,8 +109,8 @@ def test_criar_reserva_conclui_meta():
     resposta = use_case.execute(
         id_usuario="user1", id_meta=meta.id, valor=50.0)
 
-    assert resposta["meta"]["esta_concluida"] is True
-    assert "mensagem" in resposta
+    meta_resultado = resposta["meta"]
+    assert meta_resultado.esta_concluida()
     assert meta_repo.get_by_id(meta.id).esta_concluida()
 
 
@@ -121,7 +130,8 @@ def test_atualizar_reserva_recalcula_progresso():
         id_usuario="user1", id_reserva=reserva.id, novo_valor=20.0
     )
 
-    assert resposta["meta"]["valor_atual"] == pytest.approx(120.0)
+    meta_resultado = resposta["meta"]
+    assert meta_resultado.valor_atual == pytest.approx(120.0)
     assert meta_repo.get_by_id(meta.id).valor_atual == pytest.approx(120.0)
 
 
@@ -139,7 +149,8 @@ def test_excluir_reserva_recalcula_progresso():
     use_case = ExcluirReserva(reserva_repo, meta_repo)
     resposta = use_case.execute(id_usuario="user1", id_reserva=reserva.id)
 
-    assert resposta["meta"]["valor_atual"] == pytest.approx(100.0)
+    meta_resultado = resposta["meta"]
+    assert meta_resultado.valor_atual == pytest.approx(100.0)
     assert meta_repo.get_by_id(meta.id).valor_atual == pytest.approx(100.0)
 
 
@@ -167,8 +178,7 @@ def test_listar_metas_disponiveis_sem_resultado():
     caso_uso = ListarMetasDisponiveisParaReserva(meta_repo)
     resposta = caso_uso.execute(id_usuario="user1")
 
-    assert resposta["metas"] == []
-    assert "mensagem" in resposta
+    assert resposta == []
 
 
 def test_atualizar_reserva_verifica_permissao():

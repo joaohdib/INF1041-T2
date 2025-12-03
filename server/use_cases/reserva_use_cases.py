@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
+from domain.meta import Meta
 from domain.reserva import Reserva
 
 from use_cases.repository_interfaces import IMetaRepository, IReservaRepository
@@ -22,7 +23,8 @@ class _ReservaUseCaseBase:
             raise ValueError("O valor da reserva deve ser positivo.")
         return valor_float
 
-    def _recalcular_meta(self, meta_id: str) -> Dict[str, Any]:
+    def _recalcular_meta(self, meta_id: str):
+        """Recalcula e retorna a entidade Meta atualizada."""
         meta = self.meta_repo.get_by_id(meta_id)
         if not meta:
             raise ValueError("Meta vinculada não encontrada.")
@@ -30,36 +32,7 @@ class _ReservaUseCaseBase:
         total_reservado = self.reserva_repo.get_total_by_meta(meta_id)
         meta.atualizar_valor_atual(total_reservado)
         self.meta_repo.update(meta)
-
-        payload = {
-            "id": meta.id,
-            "nome": meta.nome,
-            "valor_alvo": meta.valor_alvo,
-            "valor_atual": meta.valor_atual,
-            "progresso_percentual": meta.progresso_percentual(),
-            "esta_concluida": meta.esta_concluida(),
-            "concluida_em": meta.concluida_em.isoformat()
-            if meta.concluida_em
-            else None,
-        }
-        if payload["esta_concluida"]:
-            payload["mensagem"] = "Meta concluída! Parabéns pelo objetivo atingido."
-        return payload
-
-    @staticmethod
-    def _serializar_reserva(reserva: Reserva) -> Dict[str, Any]:
-        return {
-            "id": reserva.id,
-            "id_usuario": reserva.id_usuario,
-            "id_meta": reserva.id_meta,
-            "valor": reserva.valor,
-            "id_transacao": reserva.id_transacao,
-            "observacao": reserva.observacao,
-            "criado_em": reserva.criado_em.isoformat() if reserva.criado_em else None,
-            "atualizado_em": reserva.atualizado_em.isoformat()
-            if reserva.atualizado_em
-            else None,
-        }
+        return meta
 
 
 class CriarReserva(_ReservaUseCaseBase):
@@ -90,15 +63,12 @@ class CriarReserva(_ReservaUseCaseBase):
         )
 
         self.reserva_repo.add(reserva)
-        meta_payload = self._recalcular_meta(id_meta)
+        meta_atualizada = self._recalcular_meta(id_meta)
 
-        resposta = {
-            "reserva": self._serializar_reserva(reserva),
-            "meta": meta_payload,
+        return {
+            "reserva": reserva,
+            "meta": meta_atualizada,
         }
-        if meta_payload.get("mensagem"):
-            resposta["mensagem"] = meta_payload["mensagem"]
-        return resposta
 
 
 class AtualizarReserva(_ReservaUseCaseBase):
@@ -124,11 +94,11 @@ class AtualizarReserva(_ReservaUseCaseBase):
         )
 
         self.reserva_repo.update(reserva)
-        meta_payload = self._recalcular_meta(reserva.id_meta)
+        meta_atualizada = self._recalcular_meta(reserva.id_meta)
 
         return {
-            "reserva": self._serializar_reserva(reserva),
-            "meta": meta_payload,
+            "reserva": reserva,
+            "meta": meta_atualizada,
         }
 
 
@@ -143,11 +113,10 @@ class ExcluirReserva(_ReservaUseCaseBase):
 
         id_meta = reserva.id_meta
         self.reserva_repo.delete(id_reserva)
-        meta_payload = self._recalcular_meta(id_meta)
+        meta_atualizada = self._recalcular_meta(id_meta)
 
         return {
-            "meta": meta_payload,
-            "mensagem": "Reserva removida e progresso da meta atualizado.",
+            "meta": meta_atualizada,
         }
 
 
@@ -155,27 +124,6 @@ class ListarMetasDisponiveisParaReserva:
     def __init__(self, meta_repo: IMetaRepository):
         self.meta_repo = meta_repo
 
-    def execute(self, id_usuario: str) -> Dict[str, Any]:
+    def execute(self, id_usuario: str) -> List[Meta]:
         metas = self.meta_repo.get_by_usuario(id_usuario)
-        disponiveis = [meta for meta in metas if not meta.esta_concluida()]
-
-        resposta = {
-            "metas": [
-                {
-                    "id": meta.id,
-                    "nome": meta.nome,
-                    "valor_alvo": meta.valor_alvo,
-                    "valor_atual": meta.valor_atual,
-                    "progresso_percentual": meta.progresso_percentual(),
-                    "data_limite": meta.data_limite.isoformat(),
-                }
-                for meta in disponiveis
-            ]
-        }
-
-        if not disponiveis:
-            resposta["mensagem"] = (
-                "Nenhuma meta disponível. Que tal criar uma nova meta agora?"
-            )
-
-        return resposta
+        return [meta for meta in metas if not meta.esta_concluida()]

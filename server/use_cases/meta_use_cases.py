@@ -5,7 +5,11 @@ from datetime import datetime, date
 from typing import Any, Dict
 
 from domain.meta import Meta, StatusMeta
-from use_cases.repository_interfaces import IMetaRepository, IMetaUsoRepository
+from use_cases.repository_interfaces import (
+    IMetaRepository,
+    IMetaUsoRepository,
+    ITransacaoRepository,
+)
 
 
 class MetaCalculator:
@@ -95,14 +99,8 @@ class CriarMeta:
 
         self.meta_repo.add(meta)
 
-        # 4. Retorno resumido
-        return {
-            "id": meta.id,
-            "nome": meta.nome,
-            "valor_alvo": meta.valor_alvo,
-            "data_limite": meta.data_limite.isoformat(),
-            "sugestoes": sugestoes,
-        }
+        # 4. Retorno sem formatação de apresentação
+        return {"meta": meta, "sugestoes": sugestoes}
 
 
 class EditarMeta:
@@ -117,7 +115,7 @@ class EditarMeta:
         nome: str,
         valor_alvo: Any,
         data_limite: Any,
-    ) -> Dict[str, Any]:
+    ) -> Meta:
         meta = self.meta_repo.get_by_id(id_meta)
         if not meta:
             raise ValueError("Meta não encontrada.")
@@ -160,21 +158,14 @@ class EditarMeta:
         meta.editar(nome, valor, deadline)
         self.meta_repo.update(meta)
 
-        return {
-            "id": meta.id,
-            "nome": meta.nome,
-            "valor_alvo": meta.valor_alvo,
-            "data_limite": meta.data_limite.isoformat(),
-            "progresso_percentual": meta.progresso_percentual(),
-            "mensagem": "Meta editada com sucesso!",
-        }
+        return meta
 
 
 class PausarMeta:
     def __init__(self, meta_repo: IMetaRepository):
         self.meta_repo = meta_repo
 
-    def execute(self, *, id_meta: str, id_usuario: str) -> Dict[str, Any]:
+    def execute(self, *, id_meta: str, id_usuario: str) -> Meta:
         meta = self.meta_repo.get_by_id(id_meta)
         if not meta:
             raise ValueError("Meta não encontrada.")
@@ -186,18 +177,14 @@ class PausarMeta:
         meta.pausar()
         self.meta_repo.update(meta)
 
-        return {
-            "id": meta.id,
-            "status": meta.status.value,
-            "mensagem": "Meta pausada com sucesso!",
-        }
+        return meta
 
 
 class RetomarMeta:
     def __init__(self, meta_repo: IMetaRepository):
         self.meta_repo = meta_repo
 
-    def execute(self, *, id_meta: str, id_usuario: str) -> Dict[str, Any]:
+    def execute(self, *, id_meta: str, id_usuario: str) -> Meta:
         meta = self.meta_repo.get_by_id(id_meta)
         if not meta:
             raise ValueError("Meta não encontrada.")
@@ -209,11 +196,7 @@ class RetomarMeta:
         meta.retomar()
         self.meta_repo.update(meta)
 
-        return {
-            "id": meta.id,
-            "status": meta.status.value,
-            "mensagem": "Meta retomada com sucesso!",
-        }
+        return meta
 
 
 class CancelarMeta:
@@ -265,11 +248,9 @@ class CancelarMeta:
         self.meta_repo.update(meta)
 
         return {
-            "id": meta.id,
-            "status": meta.status.value,
+            "meta": meta,
             "acao_fundos": acao_fundos,
             "id_meta_destino": id_meta_destino,
-            "mensagem": "Meta cancelada com sucesso!",
         }
 
 
@@ -277,7 +258,7 @@ class ConcluirMeta:
     def __init__(self, meta_repo: IMetaRepository):
         self.meta_repo = meta_repo
 
-    def execute(self, *, id_meta: str, id_usuario: str) -> Dict[str, Any]:
+    def execute(self, *, id_meta: str, id_usuario: str) -> Meta:
         meta = self.meta_repo.get_by_id(id_meta)
         if not meta:
             raise ValueError("Meta não encontrada.")
@@ -289,17 +270,19 @@ class ConcluirMeta:
         meta.concluir_manual()
         self.meta_repo.update(meta)
 
-        return {
-            "id": meta.id,
-            "concluida_em": meta.concluida_em.isoformat(),
-            "mensagem": "Meta concluída com sucesso!",
-        }
+        return meta
 
 
 class RegistrarUsoMeta:
-    def __init__(self, meta_repo: IMetaRepository, meta_uso_repo: IMetaUsoRepository):
+    def __init__(
+        self,
+        meta_repo: IMetaRepository,
+        meta_uso_repo: IMetaUsoRepository,
+        transacao_repo: ITransacaoRepository,
+    ):
         self.meta_repo = meta_repo
         self.meta_uso_repo = meta_uso_repo
+        self.transacao_repo = transacao_repo
 
     def execute(
         self, *, id_meta: str, id_transacao: str, id_usuario: str
@@ -314,7 +297,7 @@ class RegistrarUsoMeta:
         if meta.esta_finalizada():
             raise ValueError("Meta já finalizada.")
 
-        transacao = self.meta_uso_repo.get_transacao(id_transacao)
+        transacao = self.transacao_repo.get_by_id(id_transacao)
         if not transacao:
             raise ValueError("Transação não encontrada.")
         if transacao.id_usuario != id_usuario:
@@ -324,8 +307,7 @@ class RegistrarUsoMeta:
             id_meta, id_transacao, transacao.valor)
 
         return {
-            "id_meta": id_meta,
-            "id_transacao": id_transacao,
+            "meta": meta,
             "valor_utilizado": transacao.valor,
         }
 
@@ -353,9 +335,8 @@ class LiberarSaldoMeta:
         self.meta_repo.update(meta)
 
         return {
-            "id_meta": id_meta,
+            "meta": meta,
             "valor_total_meta": meta.valor_atual,
             "valor_utilizado": total_utilizado,
             "saldo_restante": saldo_restante,
-            "finalizada_em": meta.finalizada_em.isoformat(),
         }

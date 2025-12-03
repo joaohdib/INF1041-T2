@@ -1,6 +1,6 @@
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 @dataclass
@@ -12,7 +12,7 @@ class Reserva:
     valor: float
     id_transacao: str | None = None
     observacao: str | None = None
-    criado_em: datetime = field(default_factory=datetime.utcnow)
+    criado_em: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     atualizado_em: datetime | None = None
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
@@ -25,4 +25,4 @@ class Reserva:
         if novo_valor <= 0:
             raise ValueError("Valor da reserva deve ser positivo.")
         self.valor = novo_valor
-        self.atualizado_em = datetime.utcnow()
+        self.atualizado_em = datetime.now(timezone.utc)

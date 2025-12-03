@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify, request
 from infra.db.database import get_db_session
 from infra.repositories.meta_repository_sqlite import MetaRepositorySqlite
 from infra.repositories.meta_uso_repository_sqlite import MetaUsoRepositorySqlite
+from infra.repositories.transacao_repository_sqlite import TransacaoRepositorySqlite
 from use_cases.meta_use_cases import (
     CriarMeta,
     EditarMeta,
@@ -14,6 +15,25 @@ from use_cases.meta_use_cases import (
 )
 
 meta_bp = Blueprint("meta_bp", __name__)
+
+
+def _serialize_meta(meta):
+    return {
+        "id": meta.id,
+        "nome": meta.nome,
+        "valor_alvo": meta.valor_alvo,
+        "valor_atual": meta.valor_atual,
+        "data_limite": meta.data_limite.isoformat() if meta.data_limite else None,
+        "id_perfil": meta.id_perfil,
+        "status": meta.status.value,
+        "concluida_em": meta.concluida_em.isoformat() if meta.concluida_em else None,
+        "finalizada_em": meta.finalizada_em.isoformat()
+        if meta.finalizada_em
+        else None,
+        "progresso_percentual": meta.progresso_percentual(),
+        "esta_concluida": meta.esta_concluida(),
+        "esta_finalizada": meta.esta_finalizada(),
+    }
 
 
 @meta_bp.route("/meta/criar_meta", methods=["POST"])
@@ -36,7 +56,10 @@ def criar_meta_route():
         )
 
         db_session.commit()
-        return jsonify(resultado), 201
+        meta = resultado["meta"]
+        sugestoes = resultado["sugestoes"]
+        resposta = {**_serialize_meta(meta), "sugestoes": sugestoes}
+        return jsonify(resposta), 201
 
     except ValueError as e:
         db_session.rollback()
@@ -61,7 +84,7 @@ def editar_meta_route(id_meta):
         meta_repo = MetaRepositorySqlite(db_session)
         use_case = EditarMeta(meta_repo)
 
-        resultado = use_case.execute(
+        meta = use_case.execute(
             id_meta=id_meta,
             id_usuario=id_usuario,
             nome=data.get("nome"),
@@ -70,7 +93,12 @@ def editar_meta_route(id_meta):
         )
 
         db_session.commit()
-        return jsonify(resultado), 200
+        resposta = {
+            **_serialize_meta(meta),
+            "progresso_percentual": meta.progresso_percentual(),
+            "mensagem": "Meta editada com sucesso!",
+        }
+        return jsonify(resposta), 200
 
     except ValueError as e:
         db_session.rollback()
@@ -93,10 +121,15 @@ def pausar_meta_route(id_meta):
         meta_repo = MetaRepositorySqlite(db_session)
         use_case = PausarMeta(meta_repo)
 
-        resultado = use_case.execute(id_meta=id_meta, id_usuario=id_usuario)
+        meta = use_case.execute(id_meta=id_meta, id_usuario=id_usuario)
 
         db_session.commit()
-        return jsonify(resultado), 200
+        resposta = {
+            "id": meta.id,
+            "status": meta.status.value,
+            "mensagem": "Meta pausada com sucesso!",
+        }
+        return jsonify(resposta), 200
 
     except ValueError as e:
         db_session.rollback()
@@ -119,10 +152,15 @@ def retomar_meta_route(id_meta):
         meta_repo = MetaRepositorySqlite(db_session)
         use_case = RetomarMeta(meta_repo)
 
-        resultado = use_case.execute(id_meta=id_meta, id_usuario=id_usuario)
+        meta = use_case.execute(id_meta=id_meta, id_usuario=id_usuario)
 
         db_session.commit()
-        return jsonify(resultado), 200
+        resposta = {
+            "id": meta.id,
+            "status": meta.status.value,
+            "mensagem": "Meta retomada com sucesso!",
+        }
+        return jsonify(resposta), 200
 
     except ValueError as e:
         db_session.rollback()
@@ -155,7 +193,13 @@ def cancelar_meta_route(id_meta):
         )
 
         db_session.commit()
-        return jsonify(resultado), 200
+        resposta = {
+            "meta": _serialize_meta(resultado["meta"]),
+            "acao_fundos": resultado["acao_fundos"],
+            "id_meta_destino": resultado["id_meta_destino"],
+            "mensagem": "Meta cancelada com sucesso!",
+        }
+        return jsonify(resposta), 200
 
     except ValueError as e:
         db_session.rollback()
@@ -177,9 +221,16 @@ def concluir_meta_route(id_meta):
     try:
         meta_repo = MetaRepositorySqlite(db_session)
         use_case = ConcluirMeta(meta_repo)
-        resultado = use_case.execute(id_meta=id_meta, id_usuario=id_usuario)
+        meta = use_case.execute(id_meta=id_meta, id_usuario=id_usuario)
         db_session.commit()
-        return jsonify(resultado), 200
+        resposta = {
+            "id": meta.id,
+            "concluida_em": meta.concluida_em.isoformat()
+            if meta.concluida_em
+            else None,
+            "mensagem": "Meta concluída com sucesso!",
+        }
+        return jsonify(resposta), 200
     except ValueError as e:
         db_session.rollback()
         print(f"Erro de validação ao concluir meta: {e}")
@@ -205,15 +256,20 @@ def registrar_uso_meta_route(id_meta):
 
     try:
         meta_repo = MetaRepositorySqlite(db_session)
+        transacao_repo = TransacaoRepositorySqlite(db_session)
         meta_uso_repo = MetaUsoRepositorySqlite(db_session)
-        use_case = RegistrarUsoMeta(meta_repo, meta_uso_repo)
+        use_case = RegistrarUsoMeta(meta_repo, meta_uso_repo, transacao_repo)
         resultado = use_case.execute(
             id_meta=id_meta,
             id_transacao=id_transacao,
             id_usuario=id_usuario,
         )
         db_session.commit()
-        return jsonify(resultado), 200
+        resposta = {
+            "meta": _serialize_meta(resultado["meta"]),
+            "valor_utilizado": resultado["valor_utilizado"],
+        }
+        return jsonify(resposta), 200
     except ValueError as e:
         db_session.rollback()
         print(f"Erro de validação ao registrar uso da meta: {e}")
@@ -233,11 +289,19 @@ def liberar_saldo_meta_route(id_meta):
 
     try:
         meta_repo = MetaRepositorySqlite(db_session)
+        transacao_repo = TransacaoRepositorySqlite(db_session)
         meta_uso_repo = MetaUsoRepositorySqlite(db_session)
         use_case = LiberarSaldoMeta(meta_repo, meta_uso_repo)
         resultado = use_case.execute(id_meta=id_meta, id_usuario=id_usuario)
         db_session.commit()
-        return jsonify(resultado), 200
+        resposta = {
+            "meta": _serialize_meta(resultado["meta"]),
+            "valor_total_meta": resultado["valor_total_meta"],
+            "valor_utilizado": resultado["valor_utilizado"],
+            "saldo_restante": resultado["saldo_restante"],
+            "mensagem": "Saldo liberado com sucesso!",
+        }
+        return jsonify(resposta), 200
     except ValueError as e:
         db_session.rollback()
         print(f"Erro de validação ao liberar saldo: {e}")
@@ -257,6 +321,7 @@ def detalhes_meta_route(id_meta):
 
     try:
         meta_repo = MetaRepositorySqlite(db_session)
+        transacao_repo = TransacaoRepositorySqlite(db_session)
         meta_uso_repo = MetaUsoRepositorySqlite(db_session)
 
         meta = meta_repo.get_by_id(id_meta)

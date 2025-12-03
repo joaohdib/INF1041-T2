@@ -2,7 +2,7 @@ import os
 import shutil
 import uuid
 
-from infra.storage.storage_interface import IAnexoStorage
+from use_cases.storage_interface import IAnexoStorage
 from werkzeug.utils import secure_filename
 
 # Define a pasta onde os uploads ficarão

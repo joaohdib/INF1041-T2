@@ -100,12 +100,15 @@ class Meta:
         return self.finalizada_em is not None
 
     def _atualizar_status(self) -> None:
+        # Se a meta já foi concluída (manual ou automática), não desfaz conclusão
+        if self.status == StatusMeta.CONCLUIDA and self.concluida_em:
+            return
+
         if self.valor_atual >= self.valor_alvo:
             if self.concluida_em is None:
                 self.concluida_em = datetime.now()
                 self.status = StatusMeta.CONCLUIDA
         else:
-            self.concluida_em = None
             if self.status == StatusMeta.CONCLUIDA:
                 self.status = StatusMeta.ATIVA
 

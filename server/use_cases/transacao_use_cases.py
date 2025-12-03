@@ -3,9 +3,9 @@ from typing import Any, Dict, List
 
 from domain.anexo import Anexo
 from domain.transacao import StatusTransacao, TipoTransacao, Transacao
-from infra.storage.storage_interface import IAnexoStorage
 
 from use_cases.repository_interfaces import IAnexoRepository, ITransacaoRepository
+from use_cases.storage_interface import IAnexoStorage
 
 
 class LancarTransacao:

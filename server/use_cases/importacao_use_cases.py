@@ -2,91 +2,102 @@ import csv
 import io
 import os
 import re
+from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Any, Dict, List
 
 from domain.mapeamento_csv import MapeamentoCSV
 from domain.transacao import StatusTransacao, TipoTransacao, Transacao
-
 from use_cases.repository_interfaces import (
     IMapeamentoCSVRepository,
     ITransacaoRepository,
 )
 
 
-class ImportarExtratoBancario:
-    """Caso de uso responsável por importar arquivos CSV/OFX."""
+class ExtratoParser(ABC):
+    """Contrato para parsers de extratos (permite plugar novos formatos)."""
 
-    SUPPORTED_EXTENSIONS = {".csv", ".ofx"}
-    CSV_DEFAULT_MAP = {
-        "data": {"data", "date", "dt", "transaction date"},
-        "valor": {"valor", "value", "amount", "vl"},
-        "descricao": {"descricao", "description", "memo", "history"},
-    }
-    DATE_FORMATS = ["%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%m/%d/%Y"]
-
-    def __init__(
+    @abstractmethod
+    def parse(
         self,
-        transacao_repo: ITransacaoRepository,
-        mapeamento_repo: IMapeamentoCSVRepository | None = None,
-    ):
-        self.transacao_repo = transacao_repo
-        self.mapeamento_repo = mapeamento_repo
-
-    def execute(
-        self,
+        *,
         id_usuario: str,
         file_bytes: bytes,
         file_name: str,
         column_mapping: Dict[str, str] | None = None,
         mapping_id: str | None = None,
         sem_cabecalho: bool = False,
-    ) -> Dict[str, Any]:
-        if not file_name:
-            raise ValueError("Arquivo não enviado.")
+    ) -> List[Dict[str, Any]]:
+        pass
 
-        extension = os.path.splitext(file_name)[1].lower()
-        if extension not in self.SUPPORTED_EXTENSIONS:
-            raise ValueError("Formato de arquivo inválido. Use CSV ou OFX.")
 
-        if not file_bytes:
-            raise ValueError("Arquivo vazio. Nenhuma transação encontrada.")
+class _BaseParser:
+    DATE_FORMATS = ["%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%m/%d/%Y"]
 
+    def _parse_valor(self, raw: str) -> tuple[float, TipoTransacao]:
+        if raw is None:
+            raise ValueError("Valor ausente.")
+
+        if isinstance(raw, (int, float)):
+            valor_float = float(raw)
+        else:
+            texto = raw.strip().replace("R$", "")
+            texto = texto.replace(" ", "")
+            if "," in texto and "." in texto:
+                texto = texto.replace(".", "").replace(",", ".")
+            elif "," in texto:
+                texto = texto.replace(",", ".")
+            if not texto:
+                raise ValueError("Valor vazio.")
+            valor_float = float(texto)
+
+        tipo = TipoTransacao.RECEITA if valor_float >= 0 else TipoTransacao.DESPESA
+        return abs(valor_float), tipo
+
+    def _parse_date(self, raw: str) -> datetime:
+        if not raw:
+            raise ValueError("Coluna de data vazia.")
+
+        for fmt in self.DATE_FORMATS:
+            try:
+                return datetime.strptime(raw, fmt)
+            except ValueError:
+                continue
+
+        raise ValueError(f"Formato de data inválido: {raw}")
+
+
+class CsvExtratoParser(_BaseParser, ExtratoParser):
+    CSV_DEFAULT_MAP = {
+        "data": {"data", "date", "dt", "transaction date"},
+        "valor": {"valor", "value", "amount", "vl"},
+        "descricao": {"descricao", "description", "memo", "history"},
+    }
+
+    def __init__(self, mapeamento_repo: IMapeamentoCSVRepository | None):
+        self.mapeamento_repo = mapeamento_repo
+
+    def parse(
+        self,
+        *,
+        id_usuario: str,
+        file_bytes: bytes,
+        file_name: str,
+        column_mapping: Dict[str, str] | None = None,
+        mapping_id: str | None = None,
+        sem_cabecalho: bool = False,
+    ) -> List[Dict[str, Any]]:
         resolved_mapping, resolved_sem_cabecalho = self._resolve_mapping_param(
             id_usuario=id_usuario,
             mapping_id=mapping_id,
             column_mapping=column_mapping,
-            extension=extension,
             sem_cabecalho_flag=sem_cabecalho,
         )
-
-        if extension == ".csv":
-            transacoes = self._parse_csv(
-                file_bytes,
-                resolved_mapping,
-                sem_cabecalho=resolved_sem_cabecalho,
-            )
-        else:
-            transacoes = self._parse_ofx(file_bytes)
-
-        if not transacoes:
-            raise ValueError(
-                "Nenhuma transação válida encontrada no arquivo enviado.")
-
-        for dados in transacoes:
-            transacao = Transacao(
-                id_usuario=id_usuario,
-                valor=dados["valor"],
-                tipo=dados["tipo"],
-                data=dados["data"],
-                descricao=dados.get("descricao"),
-                status=StatusTransacao.PENDENTE,
-            )
-            self.transacao_repo.add(transacao)
-
-        return {"total_importadas": len(transacoes)}
-
-    # --- CSV helpers ---
+        return self._parse_csv(
+            file_bytes=file_bytes,
+            column_mapping=resolved_mapping,
+            sem_cabecalho=resolved_sem_cabecalho,
+        )
 
     def _parse_csv(
         self,
@@ -126,10 +137,12 @@ class ImportarExtratoBancario:
 
         if not data_rows:
             raise ValueError(
-                "Nenhuma transação válida encontrada no arquivo enviado.")
+                "Nenhuma transação válida encontrada no arquivo enviado."
+            )
 
         mapping = self._resolve_mapping(
-            fieldnames, column_mapping, sem_cabecalho)
+            fieldnames, column_mapping, sem_cabecalho
+        )
 
         transacoes = []
         for row in data_rows:
@@ -205,9 +218,54 @@ class ImportarExtratoBancario:
             mapping[campo] = encontrado
         return mapping
 
-    # --- OFX helpers ---
+    def _resolve_mapping_param(
+        self,
+        id_usuario: str,
+        mapping_id: str | None,
+        column_mapping: Dict[str, str] | None,
+        sem_cabecalho_flag: bool,
+    ) -> tuple[Dict[str, str] | None, bool]:
+        sem_cabecalho = sem_cabecalho_flag
 
-    def _parse_ofx(self, file_bytes: bytes) -> List[Dict[str, Any]]:
+        if mapping_id:
+            if not self.mapeamento_repo:
+                raise ValueError("Repositório de mapeamentos indisponível.")
+            mapeamento = self.mapeamento_repo.get_by_id(mapping_id)
+            if not mapeamento or mapeamento.id_usuario != id_usuario:
+                raise ValueError(
+                    "Mapeamento não encontrado para este usuário."
+                )
+            sem_cabecalho = all(
+                coluna.startswith("__col_")
+                for coluna in [
+                    mapeamento.coluna_data,
+                    mapeamento.coluna_valor,
+                    mapeamento.coluna_descricao,
+                ]
+            )
+            return (
+                {
+                    "data": mapeamento.coluna_data,
+                    "valor": mapeamento.coluna_valor,
+                    "descricao": mapeamento.coluna_descricao,
+                },
+                sem_cabecalho,
+            )
+
+        return column_mapping, sem_cabecalho
+
+
+class OfxExtratoParser(_BaseParser, ExtratoParser):
+    def parse(
+        self,
+        *,
+        id_usuario: str,
+        file_bytes: bytes,
+        file_name: str,
+        column_mapping: Dict[str, str] | None = None,
+        mapping_id: str | None = None,
+        sem_cabecalho: bool = False,
+    ) -> List[Dict[str, Any]]:
         texto = file_bytes.decode("latin-1")
         transacoes = []
         atual: Dict[str, str] | None = None
@@ -255,20 +313,6 @@ class ImportarExtratoBancario:
             "descricao": descricao,
         }
 
-    # --- utilitários ---
-
-    def _parse_date(self, raw: str) -> datetime:
-        if not raw:
-            raise ValueError("Coluna de data vazia.")
-
-        for fmt in self.DATE_FORMATS:
-            try:
-                return datetime.strptime(raw, fmt)
-            except ValueError:
-                continue
-
-        raise ValueError(f"Formato de data inválido: {raw}")
-
     def _parse_ofx_date(self, raw: str) -> datetime:
         if not raw:
             raise ValueError("Registro OFX sem data.")
@@ -278,66 +322,69 @@ class ImportarExtratoBancario:
         data_str = numeros[0]
         return datetime.strptime(data_str[:8], "%Y%m%d")
 
-    def _parse_valor(self, raw: str) -> tuple[float, TipoTransacao]:
-        if raw is None:
-            raise ValueError("Valor ausente.")
 
-        if isinstance(raw, (int, float)):
-            valor_float = float(raw)
-        else:
-            texto = raw.strip().replace("R$", "")
-            texto = texto.replace(" ", "")
-            if "," in texto and "." in texto:
-                texto = texto.replace(".", "").replace(",", ".")
-            elif "," in texto:
-                texto = texto.replace(",", ".")
-            if not texto:
-                raise ValueError("Valor vazio.")
-            valor_float = float(texto)
+class ImportarExtratoBancario:
+    """Caso de uso responsável por importar arquivos com parsers pluggáveis."""
 
-        tipo = TipoTransacao.RECEITA if valor_float >= 0 else TipoTransacao.DESPESA
-        return abs(valor_float), tipo
+    SUPPORTED_EXTENSIONS = {".csv", ".ofx"}
 
-    # --- mapping helpers ---
+    def __init__(
+        self,
+        transacao_repo: ITransacaoRepository,
+        mapeamento_repo: IMapeamentoCSVRepository | None = None,
+    ):
+        self.transacao_repo = transacao_repo
+        self.parsers = {
+            ".csv": CsvExtratoParser(mapeamento_repo),
+            ".ofx": OfxExtratoParser(),
+        }
 
-    def _resolve_mapping_param(
+    def execute(
         self,
         id_usuario: str,
-        mapping_id: str | None,
-        column_mapping: Dict[str, str] | None,
-        extension: str,
-        sem_cabecalho_flag: bool,
-    ) -> tuple[Dict[str, str] | None, bool]:
-        if extension != ".csv":
-            return None, False
+        file_bytes: bytes,
+        file_name: str,
+        column_mapping: Dict[str, str] | None = None,
+        mapping_id: str | None = None,
+        sem_cabecalho: bool = False,
+    ) -> Dict[str, Any]:
+        if not file_name:
+            raise ValueError("Arquivo não enviado.")
 
-        sem_cabecalho = sem_cabecalho_flag
+        extension = os.path.splitext(file_name)[1].lower()
+        parser = self.parsers.get(extension)
+        if not parser:
+            raise ValueError("Formato de arquivo inválido. Use CSV ou OFX.")
 
-        if mapping_id:
-            if not self.mapeamento_repo:
-                raise ValueError("Repositório de mapeamentos indisponível.")
-            mapeamento = self.mapeamento_repo.get_by_id(mapping_id)
-            if not mapeamento or mapeamento.id_usuario != id_usuario:
-                raise ValueError(
-                    "Mapeamento não encontrado para este usuário.")
-            sem_cabecalho = all(
-                coluna.startswith("__col_")
-                for coluna in [
-                    mapeamento.coluna_data,
-                    mapeamento.coluna_valor,
-                    mapeamento.coluna_descricao,
-                ]
-            )
-            return (
-                {
-                    "data": mapeamento.coluna_data,
-                    "valor": mapeamento.coluna_valor,
-                    "descricao": mapeamento.coluna_descricao,
-                },
-                sem_cabecalho,
+        if not file_bytes:
+            raise ValueError("Arquivo vazio. Nenhuma transação encontrada.")
+
+        transacoes = parser.parse(
+            id_usuario=id_usuario,
+            file_bytes=file_bytes,
+            file_name=file_name,
+            column_mapping=column_mapping,
+            mapping_id=mapping_id,
+            sem_cabecalho=sem_cabecalho,
+        )
+
+        if not transacoes:
+            raise ValueError(
+                "Nenhuma transação válida encontrada no arquivo enviado."
             )
 
-        return column_mapping, sem_cabecalho
+        for dados in transacoes:
+            transacao = Transacao(
+                id_usuario=id_usuario,
+                valor=dados["valor"],
+                tipo=dados["tipo"],
+                data=dados["data"],
+                descricao=dados.get("descricao"),
+                status=StatusTransacao.PENDENTE,
+            )
+            self.transacao_repo.add(transacao)
+
+        return {"total_importadas": len(transacoes)}
 
 
 class SalvarMapeamentoCSV:

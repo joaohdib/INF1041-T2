@@ -1,25 +1,25 @@
-from sqlalchemy.orm import Session
+import uuid
+
 from sqlalchemy import func
+from sqlalchemy.orm import Session
+
 from infra.db.models import MetaUso as MetaUsoModel
 from use_cases.repository_interfaces import IMetaUsoRepository
-from infra.repositories.transacao_repository_sqlite import TransacaoRepositorySqlite
+
 
 class MetaUsoRepositorySqlite(IMetaUsoRepository):
     def __init__(self, db_session: Session):
         self.db = db_session
-        self.transacao_repo = TransacaoRepositorySqlite(db_session)
 
     def add_uso(self, id_meta: str, id_transacao: str, valor: float) -> MetaUsoModel:
         meta_uso = MetaUsoModel(
+            id=str(uuid.uuid4()),
             id_meta=id_meta,
             id_transacao=id_transacao,
             valor=valor
         )
         self.db.add(meta_uso)
         return meta_uso
-
-    def get_transacao(self, id_transacao: str):
-        return self.transacao_repo.get_by_id(id_transacao)
 
     def sum_uso_por_meta(self, id_meta: str) -> float:
         total = self.db.query(MetaUsoModel).filter(

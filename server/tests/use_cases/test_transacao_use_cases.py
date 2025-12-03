@@ -1,7 +1,15 @@
+import os
+import sys
 from datetime import date, datetime
 from unittest.mock import MagicMock
 
 import pytest
+
+# Garante que /server esteja no sys.path mesmo quando o arquivo é executado diretamente
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 from domain.transacao import StatusTransacao, TipoTransacao, Transacao
 from use_cases.repository_interfaces import ITransacaoRepository
 from use_cases.transacao_use_cases import (

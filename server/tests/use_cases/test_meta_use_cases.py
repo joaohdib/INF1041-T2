@@ -1,4 +1,11 @@
+import os
+import sys
 from datetime import datetime, timedelta
+
+# Garante que /server esteja no sys.path mesmo quando o arquivo é executado diretamente
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 from domain.meta import Meta
 from use_cases.meta_use_cases import CriarMeta
@@ -42,7 +49,7 @@ def test_criar_meta_sucesso_calculo_mensal():
     # Mensal deve ficar aproximadamente 400 (1200/3) com arredondamento
     mensal = resultado["sugestoes"]["mensal"]
     assert 390 <= mensal <= 410
-    assert resultado["nome"] == "Férias na Europa"
+    assert resultado["meta"].nome == "Férias na Europa"
 
 
 def test_criar_meta_falha_prazo_obrigatorio():

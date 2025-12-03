@@ -1,6 +1,14 @@
+import os
+import sys
 from unittest.mock import MagicMock
 
 import pytest
+
+# Garante que /server esteja no sys.path mesmo quando o arquivo é executado diretamente
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 from domain.mapeamento_csv import MapeamentoCSV
 from use_cases.importacao_use_cases import ImportarExtratoBancario, SalvarMapeamentoCSV
 from use_cases.repository_interfaces import (

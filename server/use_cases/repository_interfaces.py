@@ -161,11 +161,6 @@ class IMetaUsoRepository(ABC):
         pass
 
     @abstractmethod
-    def get_transacao(self, id_transacao: str) -> Any:
-        """Busca a transação usada em um registro de uso de meta."""
-        pass
-
-    @abstractmethod
     def sum_uso_por_meta(self, id_meta: str) -> float:
         """Soma o valor total já utilizado de uma meta."""
         pass

@@ -1,4 +1,9 @@
 /* Reset Básico */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
 body,
 h1,
 h2,
@@ -6,11 +11,9 @@ h3,
 button,
 input,
 select {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial,
-    sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
   margin: 0;
   padding: 0;
-  box-sizing: border-box;
 }
 
 body {
@@ -579,9 +582,10 @@ tr[data-status="PROCESSADO"] .btn-editar {
 }
 .metas-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 18px;
   margin-top: 20px;
+  width: 100%;
 }
 .meta-empty {
   text-align: center;
@@ -605,7 +609,7 @@ tr[data-status="PROCESSADO"] .btn-editar {
   gap: 14px;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
   width: 100%;
-  min-width: 280px;
+  min-width: 0;
 }
 .meta-card-concluida {
   border-color: #c9f4d9;
@@ -621,15 +625,28 @@ tr[data-status="PROCESSADO"] .btn-editar {
   align-items: flex-start;
   gap: 12px;
 }
+.meta-card-header > div {
+  min-width: 0;
+}
+.meta-card-header > div:last-child {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  text-align: right;
+}
 .meta-card-header h3 {
   font-size: 1.15rem;
   margin: 0;
   color: #1e293b;
+  overflow-wrap: anywhere;
 }
 .meta-deadline {
   font-size: 0.85rem;
   color: #65748b;
-  white-space: nowrap;
+  white-space: normal;
+  display: block;
+  overflow-wrap: anywhere;
 }
 .meta-progress-bar {
   width: 100%;
@@ -706,6 +723,9 @@ tr[data-status="PROCESSADO"] .btn-editar {
   .meta-card-header {
     flex-direction: column;
     align-items: flex-start;
+  }
+  .metas-grid {
+    grid-template-columns: 1fr;
   }
   .meta-progress-values {
     flex-direction: column;
@@ -795,6 +815,7 @@ tr[data-status="PROCESSADO"] .btn-editar {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-top: 6px;
+  align-self: flex-end;
 }
 .meta-status.ativa {
   background: #e0f2fe;
